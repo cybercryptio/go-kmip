@@ -94,19 +94,18 @@ func (c *Client) DiscoverVersions(versions []ProtocolVersion) (serverVersions []
 }
 
 // Create with the server
-func (c *Client) Create(objectType Enum, templateAttribute TemplateAttribute) (uniqueIdentifier string, err error) {
-	var resp interface{}
-	resp, err = c.Send(OPERATION_CREATE,
-		CreateRequest{
-			ObjectType:        objectType,
-			TemplateAttribute: templateAttribute,
-		})
+func (c *Client) Create(request CreateRequest) (CreateResponse, error) {
+	resp, err := c.Send(OPERATION_CREATE, request)
 	if err != nil {
-		return "", err
+		return CreateResponse{}, err
 	}
 
-	uniqueIdentifier = resp.(CreateResponse).UniqueIdentifier
-	return
+	createResp, ok := resp.(CreateResponse)
+	if !ok {
+		return CreateResponse{}, errors.New("unexpected response type")
+	}
+
+	return createResp, nil
 }
 
 // Activate with the server
