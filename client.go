@@ -165,7 +165,7 @@ func (c *Client) RNGRetrieve(request RNGRetrieveRequest) (RNGRetrieveResponse, e
 		return RNGRetrieveResponse{}, errors.New("unexpected response type")
 	}
 
-	return rngretrieveResp, nil
+	return rngRetrieveResp, nil
 }
 
 // Send request to server and deliver response/error back
