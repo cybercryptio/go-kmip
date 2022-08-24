@@ -6,13 +6,13 @@ package kmip
 
 import (
 	"crypto/tls"
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/pkg/errors"
 )
 
-var ErrResponseType = fmt.Errorf("unexpected response type")
+var ErrResponseType = errors.New("unexpected response type")
 
 // Client implements basic KMIP client
 //
