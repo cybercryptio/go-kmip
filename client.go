@@ -6,10 +6,13 @@ package kmip
 
 import (
 	"crypto/tls"
+	"errors"
 	"time"
 
 	"github.com/pkg/errors"
 )
+
+var ErrResponseType = errors.New("unexpected response type")
 
 // Client implements basic KMIP client
 //
@@ -91,6 +94,81 @@ func (c *Client) DiscoverVersions(versions []ProtocolVersion) (serverVersions []
 
 	serverVersions = resp.(DiscoverVersionsResponse).ProtocolVersions
 	return
+}
+
+// Create with the server
+func (c *Client) Create(request CreateRequest) (CreateResponse, error) {
+	resp, err := c.Send(OPERATION_CREATE, request)
+	if err != nil {
+		return CreateResponse{}, err
+	}
+
+	createResp, ok := resp.(CreateResponse)
+	if !ok {
+		return CreateResponse{}, ErrResponseType
+	}
+
+	return createResp, nil
+}
+
+// Activate with the server
+func (c *Client) Activate(request ActivateRequest) (ActivateResponse, error) {
+	resp, err := c.Send(OPERATION_ACTIVATE, request)
+	if err != nil {
+		return ActivateResponse{}, err
+	}
+
+	activateResp, ok := resp.(ActivateResponse)
+	if !ok {
+		return ActivateResponse{}, ErrResponseType
+	}
+
+	return activateResp, nil
+}
+
+// Encrypt with the server
+func (c *Client) Encrypt(request EncryptRequest) (EncryptResponse, error) {
+	resp, err := c.Send(OPERATION_ENCRYPT, request)
+	if err != nil {
+		return EncryptResponse{}, err
+	}
+
+	encryptResp, ok := resp.(EncryptResponse)
+	if !ok {
+		return EncryptResponse{}, ErrResponseType
+	}
+
+	return encryptResp, nil
+}
+
+// Decrypt with the server
+func (c *Client) Decrypt(request DecryptRequest) (DecryptResponse, error) {
+	resp, err := c.Send(OPERATION_DECRYPT, request)
+	if err != nil {
+		return DecryptResponse{}, err
+	}
+
+	decryptResp, ok := resp.(DecryptResponse)
+	if !ok {
+		return DecryptResponse{}, ErrResponseType
+	}
+
+	return decryptResp, nil
+}
+
+// RNGRetrieve with the server
+func (c *Client) RNGRetrieve(request RNGRetrieveRequest) (RNGRetrieveResponse, error) {
+	resp, err := c.Send(OPERATION_RNG_RETRIEVE, request)
+	if err != nil {
+		return RNGRetrieveResponse{}, err
+	}
+
+	rngRetrieveResp, ok := resp.(RNGRetrieveResponse)
+	if !ok {
+		return RNGRetrieveResponse{}, ErrResponseType
+	}
+
+	return rngRetrieveResp, nil
 }
 
 // Send request to server and deliver response/error back

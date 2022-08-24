@@ -1,0 +1,18 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+version: '3'
+services:
+  dependencies:
+    image: waisbrot/wait
+    environment:
+      TARGETS: pykmip-server:5696
+    depends_on:
+      - pykmip-server
+
+  pykmip-server:
+    build:
+      context: pykmip-server
+    ports:
+      - 5696:5696

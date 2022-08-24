@@ -8,7 +8,6 @@ import (
 	"bufio"
 	"encoding/binary"
 	"io"
-	"io/ioutil"
 	"reflect"
 
 	"github.com/pkg/errors"
@@ -186,7 +185,7 @@ func (d *Decoder) decodeValue(f field, t reflect.Type, ff reflect.Value) (n int,
 			l += 8 - l%8
 		}
 
-		_, err = io.CopyN(ioutil.Discard, d.r, int64(l))
+		_, err = io.CopyN(io.Discard, d.r, int64(l))
 		n += int(l)
 
 		return
