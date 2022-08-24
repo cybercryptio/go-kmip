@@ -9,7 +9,7 @@ help:  ## Display this help
 BUILD_FLAGS =
 COMPOSE ?= docker-compose
 
-all: build up test lint down
+all: build lint up test down
 
 .PHONY: build
 build: ## Build go project
