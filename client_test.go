@@ -30,7 +30,9 @@ func MakeTestClient() (Client, error) {
 		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
 	}
 
-	_ = client.Connect()
+	if err = client.Connect(); err != nil {
+		return Client{}, err
+	}
 
 	return client, nil
 }

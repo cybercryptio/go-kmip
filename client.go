@@ -6,10 +6,13 @@ package kmip
 
 import (
 	"crypto/tls"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
 )
+
+var ErrResponseType = fmt.Errorf("unexpected response type")
 
 // Client implements basic KMIP client
 //
@@ -102,7 +105,7 @@ func (c *Client) Create(request CreateRequest) (CreateResponse, error) {
 
 	createResp, ok := resp.(CreateResponse)
 	if !ok {
-		return CreateResponse{}, errors.New("unexpected response type")
+		return CreateResponse{}, ErrResponseType
 	}
 
 	return createResp, nil
@@ -117,7 +120,7 @@ func (c *Client) Activate(request ActivateRequest) (ActivateResponse, error) {
 
 	activateResp, ok := resp.(ActivateResponse)
 	if !ok {
-		return ActivateResponse{}, errors.New("unexpected response type")
+		return ActivateResponse{}, ErrResponseType
 	}
 
 	return activateResp, nil
@@ -132,7 +135,7 @@ func (c *Client) Encrypt(request EncryptRequest) (EncryptResponse, error) {
 
 	encryptResp, ok := resp.(EncryptResponse)
 	if !ok {
-		return EncryptResponse{}, errors.New("unexpected response type")
+		return EncryptResponse{}, ErrResponseType
 	}
 
 	return encryptResp, nil
@@ -147,7 +150,7 @@ func (c *Client) Decrypt(request DecryptRequest) (DecryptResponse, error) {
 
 	decryptResp, ok := resp.(DecryptResponse)
 	if !ok {
-		return DecryptResponse{}, errors.New("unexpected response type")
+		return DecryptResponse{}, ErrResponseType
 	}
 
 	return decryptResp, nil
@@ -162,7 +165,7 @@ func (c *Client) RNGRetrieve(request RNGRetrieveRequest) (RNGRetrieveResponse, e
 
 	rngretrieveResp, ok := resp.(RNGRetrieveResponse)
 	if !ok {
-		return RNGRetrieveResponse{}, errors.New("unexpected response type")
+		return RNGRetrieveResponse{}, ErrResponseType
 	}
 
 	return rngretrieveResp, nil

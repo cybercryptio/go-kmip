@@ -7,6 +7,7 @@ package kmip
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"log"
 	"net"
 	"os"
@@ -187,7 +188,6 @@ func (s *ServerSuite) TestConnectTLSNoCert() {
 	s.client.Close() //nolint:errcheck
 }
 
-/*
 func (s *ServerSuite) TestConnectTLSNoCA() {
 	var savedPool *x509.CertPool
 	savedPool, s.client.TLSConfig.RootCAs = s.client.TLSConfig.RootCAs, nil
@@ -195,9 +195,9 @@ func (s *ServerSuite) TestConnectTLSNoCA() {
 		s.client.TLSConfig.RootCAs = savedPool
 	}()
 
-	s.Require().EqualError(errors.Cause(s.client.Connect()), "x509: certificate signed by unknown authority")
+	err := s.client.Connect()
+	s.Require().Error(err)
 }
-*/
 
 func (s *ServerSuite) TestOperationGenericFail() {
 	s.server.Handle(OPERATION_DISCOVER_VERSIONS, func(req *RequestContext, item *RequestBatchItem) (interface{}, error) {
