@@ -93,6 +93,84 @@ func (c *Client) DiscoverVersions(versions []ProtocolVersion) (serverVersions []
 	return
 }
 
+// Create with the server
+func (c *Client) Create(objectType Enum, templateAttribute TemplateAttribute) (uniqueIdentifier string, err error) {
+	var resp interface{}
+	resp, err = c.Send(OPERATION_CREATE,
+		CreateRequest{
+			ObjectType:        objectType,
+			TemplateAttribute: templateAttribute,
+		})
+	if err != nil {
+		return "", err
+	}
+
+	uniqueIdentifier = resp.(CreateResponse).UniqueIdentifier
+	return
+}
+
+// Activate with the server
+func (c *Client) Activate(uniqueIdentifier string) (err error) {
+	_, err = c.Send(OPERATION_ACTIVATE,
+		ActivateRequest{
+			UniqueIdentifier: uniqueIdentifier,
+		})
+	return
+}
+
+// Encrypt with the server
+func (c *Client) Encrypt(uniqueIdentifier string, cryptoParams CryptoParams, data []byte) (ciphertext []byte, IV []byte, authTag []byte, err error) {
+	var resp interface{}
+	resp, err = c.Send(OPERATION_ENCRYPT,
+		EncryptRequest{
+			UniqueIdentifier: uniqueIdentifier,
+			CryptoParams:     cryptoParams,
+			Data:             data,
+		})
+	if err != nil {
+		return []byte{}, []byte{}, []byte{}, err
+	}
+
+	ciphertext = resp.(EncryptResponse).Data
+	IV = resp.(EncryptResponse).IVCounterNonce
+	authTag = resp.(EncryptResponse).AuthTag
+	return
+}
+
+// Decrypt with the server
+func (c *Client) Decrypt(uniqueIdentifier string, cryptoParams CryptoParams, ciphertext []byte, IV []byte, authTag []byte) (plaintext []byte, err error) {
+	var resp interface{}
+	resp, err = c.Send(OPERATION_DECRYPT,
+		DecryptRequest{
+			UniqueIdentifier: uniqueIdentifier,
+			CryptoParams:     cryptoParams,
+			Data:             ciphertext,
+			IVCounterNonce:   IV,
+			AuthTag:          authTag,
+		})
+	if err != nil {
+		return []byte{}, err
+	}
+
+	plaintext = resp.(DecryptResponse).Data
+	return
+}
+
+// RNGRetrieve with the server
+func (c *Client) RNGRetrieve(dataLength int32) (data []byte, err error) {
+	var resp interface{}
+	resp, err = c.Send(OPERATION_RNG_RETRIEVE,
+		RNGRetrieveRequest{
+			DataLength: dataLength,
+		})
+	if err != nil {
+		return nil, err
+	}
+
+	data = resp.(RNGRetrieveResponse).Data
+	return
+}
+
 // Send request to server and deliver response/error back
 //
 // Request payload should be passed as req, and response payload will be

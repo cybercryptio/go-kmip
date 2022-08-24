@@ -227,3 +227,13 @@ type ReKeyRequest struct {
 type ReKeyResponse struct {
 	UniqueIdentifier string `kmip:"UNIQUE_IDENTIFIER,required"`
 }
+
+// RNGRetrieveRequest is a RNGRetrieve Request Payload
+type RNGRetrieveRequest struct {
+	DataLength int32 `kmip:"DATA_LENGTH"`
+}
+
+// RNGRetrieveResponse is a RNGRetrieve Response Payload
+type RNGRetrieveResponse struct {
+	Data []byte `kmip:"DATA"`
+}

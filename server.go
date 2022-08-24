@@ -137,7 +137,7 @@ func (s *Server) Serve(l net.Listener, initializedCh chan struct{}) error {
 			default:
 			}
 
-			if netErr, ok := err.(net.Error); ok && netErr.Temporary() {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 				if tempDelay == 0 {
 					tempDelay = 5 * time.Millisecond
 				} else {
