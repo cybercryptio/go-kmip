@@ -163,12 +163,12 @@ func (c *Client) RNGRetrieve(request RNGRetrieveRequest) (RNGRetrieveResponse, e
 		return RNGRetrieveResponse{}, err
 	}
 
-	rngretrieveResp, ok := resp.(RNGRetrieveResponse)
+	rngRetrieveResp, ok := resp.(RNGRetrieveResponse)
 	if !ok {
 		return RNGRetrieveResponse{}, ErrResponseType
 	}
 
-	return rngretrieveResp, nil
+	return rngRetrieveResp, nil
 }
 
 // Send request to server and deliver response/error back
