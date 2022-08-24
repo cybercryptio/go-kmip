@@ -160,7 +160,7 @@ func (c *Client) RNGRetrieve(request RNGRetrieveRequest) (RNGRetrieveResponse, e
 		return RNGRetrieveResponse{}, err
 	}
 
-	rngretrieveResp, ok := resp.(RNGRetrieveResponse)
+	rngRetrieveResp, ok := resp.(RNGRetrieveResponse)
 	if !ok {
 		return RNGRetrieveResponse{}, errors.New("unexpected response type")
 	}
