@@ -11,9 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDiscoverVersions(t *testing.T) {
+func MakeTestClient() (Client, error) {
 	cert, err := tls.LoadX509KeyPair("./pykmip-server/server.cert", "./pykmip-server/server.key")
-	require.NoError(t, err)
+	if err != nil {
+		return Client{}, err
+	}
 
 	client := Client{
 		Endpoint: "127.0.0.1:5696",
@@ -29,32 +31,24 @@ func TestDiscoverVersions(t *testing.T) {
 	}
 
 	_ = client.Connect()
+
+	return client, nil
+}
+
+func TestDiscoverVersions(t *testing.T) {
+	client, err := MakeTestClient()
+	require.NoError(t, err)
+	defer client.Close()
 
 	versions, err := client.DiscoverVersions([]ProtocolVersion{{Major: 1, Minor: 4}})
 	require.NoError(t, err)
 	require.Equal(t, []ProtocolVersion{{Major: 1, Minor: 4}}, versions)
-
-	client.Close()
 }
 
 func TestEncryptDecrypt(t *testing.T) {
-	cert, err := tls.LoadX509KeyPair("./pykmip-server/server.cert", "./pykmip-server/server.key")
+	client, err := MakeTestClient()
 	require.NoError(t, err)
-
-	client := Client{
-		Endpoint: "127.0.0.1:5696",
-		TLSConfig: &tls.Config{
-			MinVersion:   tls.VersionTLS12,
-			Certificates: []tls.Certificate{cert},
-		},
-	}
-
-	client.TLSConfig.InsecureSkipVerify = true
-	client.TLSConfig.CipherSuites = []uint16{
-		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
-	}
-
-	_ = client.Connect()
+	defer client.Close()
 
 	templateAttribute := TemplateAttribute{
 		Attributes: Attributes{
@@ -68,7 +62,7 @@ func TestEncryptDecrypt(t *testing.T) {
 			},
 			{
 				Name:  ATTRIBUTE_NAME_CRYPTOGRAPHIC_USAGE_MASK,
-				Value: int32(0x00000004 | 0x00000008),
+				Value: int32(CRYPTO_USAGE_MASK_ENCRYPT | CRYPTO_USAGE_MASK_DECRYPT),
 			},
 			{
 				Name: ATTRIBUTE_NAME_NAME,
@@ -80,10 +74,19 @@ func TestEncryptDecrypt(t *testing.T) {
 		},
 	}
 
-	uniqueIdentifier, err := client.Create(OBJECT_TYPE_SYMMETRIC_KEY, templateAttribute)
+	createReq := CreateRequest{
+		ObjectType:        OBJECT_TYPE_SYMMETRIC_KEY,
+		TemplateAttribute: templateAttribute,
+	}
+
+	createResp, err := client.Create(createReq)
 	require.NoError(t, err)
 
-	err = client.Activate(uniqueIdentifier)
+	activateReq := ActivateRequest{
+		UniqueIdentifier: createResp.UniqueIdentifier,
+	}
+
+	_, err = client.Activate(activateReq)
 	require.NoError(t, err)
 
 	cryptoParams := CryptoParams{
@@ -94,35 +97,32 @@ func TestEncryptDecrypt(t *testing.T) {
 
 	plaintext := []byte("plaintext")
 
-	ciphertext, IV, authTag, err := client.Encrypt(uniqueIdentifier, cryptoParams, plaintext)
+	encryptReq := EncryptRequest{
+		UniqueIdentifier: createResp.UniqueIdentifier,
+		CryptoParams:     cryptoParams,
+		Data:             plaintext,
+	}
+
+	encryptResp, err := client.Encrypt(encryptReq)
 	require.NoError(t, err)
 
-	decrypted, err := client.Decrypt(uniqueIdentifier, cryptoParams, ciphertext, IV, authTag)
+	decryptReq := DecryptRequest{
+		UniqueIdentifier: createResp.UniqueIdentifier,
+		CryptoParams:     cryptoParams,
+		Data:             encryptResp.Data,
+		IVCounterNonce:   encryptResp.IVCounterNonce,
+		AuthTag:          encryptResp.AuthTag,
+	}
+
+	decryptResp, err := client.Decrypt(decryptReq)
 	require.NoError(t, err)
-
-	require.Equal(t, plaintext, decrypted)
-
-	client.Close()
+	require.Equal(t, plaintext, decryptResp.Data)
 }
 
 func TestNotActivated(t *testing.T) {
-	cert, err := tls.LoadX509KeyPair("./pykmip-server/server.cert", "./pykmip-server/server.key")
+	client, err := MakeTestClient()
 	require.NoError(t, err)
-
-	client := Client{
-		Endpoint: "127.0.0.1:5696",
-		TLSConfig: &tls.Config{
-			MinVersion:   tls.VersionTLS12,
-			Certificates: []tls.Certificate{cert},
-		},
-	}
-
-	client.TLSConfig.InsecureSkipVerify = true
-	client.TLSConfig.CipherSuites = []uint16{
-		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
-	}
-
-	_ = client.Connect()
+	defer client.Close()
 
 	templateAttribute := TemplateAttribute{
 		Attributes: Attributes{
@@ -136,7 +136,7 @@ func TestNotActivated(t *testing.T) {
 			},
 			{
 				Name:  ATTRIBUTE_NAME_CRYPTOGRAPHIC_USAGE_MASK,
-				Value: int32(0x00000004 | 0x00000008),
+				Value: int32(CRYPTO_USAGE_MASK_ENCRYPT | CRYPTO_USAGE_MASK_DECRYPT),
 			},
 			{
 				Name: ATTRIBUTE_NAME_NAME,
@@ -148,7 +148,12 @@ func TestNotActivated(t *testing.T) {
 		},
 	}
 
-	uniqueIdentifier, err := client.Create(OBJECT_TYPE_SYMMETRIC_KEY, templateAttribute)
+	createReq := CreateRequest{
+		ObjectType:        OBJECT_TYPE_SYMMETRIC_KEY,
+		TemplateAttribute: templateAttribute,
+	}
+
+	createResp, err := client.Create(createReq)
 	require.NoError(t, err)
 
 	cryptoParams := CryptoParams{
@@ -159,8 +164,12 @@ func TestNotActivated(t *testing.T) {
 
 	plaintext := []byte("plaintext")
 
-	_, _, _, err = client.Encrypt(uniqueIdentifier, cryptoParams, plaintext)
-	require.Error(t, err)
+	encryptReq := EncryptRequest{
+		UniqueIdentifier: createResp.UniqueIdentifier,
+		CryptoParams:     cryptoParams,
+		Data:             plaintext,
+	}
 
-	client.Close()
+	_, err = client.Encrypt(encryptReq)
+	require.Error(t, err)
 }

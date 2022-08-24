@@ -9,7 +9,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"runtime"
@@ -108,7 +107,7 @@ func (s *Server) Serve(l net.Listener, initializedCh chan struct{}) error {
 	s.l = l
 
 	if s.Log == nil {
-		s.Log = log.New(ioutil.Discard, "", log.LstdFlags)
+		s.Log = log.New(io.Discard, "", log.LstdFlags)
 	}
 
 	if len(s.SupportedVersions) == 0 {

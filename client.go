@@ -109,65 +109,63 @@ func (c *Client) Create(request CreateRequest) (CreateResponse, error) {
 }
 
 // Activate with the server
-func (c *Client) Activate(uniqueIdentifier string) (err error) {
-	_, err = c.Send(OPERATION_ACTIVATE,
-		ActivateRequest{
-			UniqueIdentifier: uniqueIdentifier,
-		})
-	return
+func (c *Client) Activate(request ActivateRequest) (ActivateResponse, error) {
+	resp, err := c.Send(OPERATION_ACTIVATE, request)
+	if err != nil {
+		return ActivateResponse{}, err
+	}
+
+	activateResp, ok := resp.(ActivateResponse)
+	if !ok {
+		return ActivateResponse{}, errors.New("unexpected response type")
+	}
+
+	return activateResp, nil
 }
 
 // Encrypt with the server
-func (c *Client) Encrypt(uniqueIdentifier string, cryptoParams CryptoParams, data []byte) (ciphertext []byte, IV []byte, authTag []byte, err error) {
-	var resp interface{}
-	resp, err = c.Send(OPERATION_ENCRYPT,
-		EncryptRequest{
-			UniqueIdentifier: uniqueIdentifier,
-			CryptoParams:     cryptoParams,
-			Data:             data,
-		})
+func (c *Client) Encrypt(request EncryptRequest) (EncryptResponse, error) {
+	resp, err := c.Send(OPERATION_ENCRYPT, request)
 	if err != nil {
-		return []byte{}, []byte{}, []byte{}, err
+		return EncryptResponse{}, err
 	}
 
-	ciphertext = resp.(EncryptResponse).Data
-	IV = resp.(EncryptResponse).IVCounterNonce
-	authTag = resp.(EncryptResponse).AuthTag
-	return
+	encryptResp, ok := resp.(EncryptResponse)
+	if !ok {
+		return EncryptResponse{}, errors.New("unexpected response type")
+	}
+
+	return encryptResp, nil
 }
 
 // Decrypt with the server
-func (c *Client) Decrypt(uniqueIdentifier string, cryptoParams CryptoParams, ciphertext []byte, IV []byte, authTag []byte) (plaintext []byte, err error) {
-	var resp interface{}
-	resp, err = c.Send(OPERATION_DECRYPT,
-		DecryptRequest{
-			UniqueIdentifier: uniqueIdentifier,
-			CryptoParams:     cryptoParams,
-			Data:             ciphertext,
-			IVCounterNonce:   IV,
-			AuthTag:          authTag,
-		})
+func (c *Client) Decrypt(request DecryptRequest) (DecryptResponse, error) {
+	resp, err := c.Send(OPERATION_DECRYPT, request)
 	if err != nil {
-		return []byte{}, err
+		return DecryptResponse{}, err
 	}
 
-	plaintext = resp.(DecryptResponse).Data
-	return
+	decryptResp, ok := resp.(DecryptResponse)
+	if !ok {
+		return DecryptResponse{}, errors.New("unexpected response type")
+	}
+
+	return decryptResp, nil
 }
 
 // RNGRetrieve with the server
-func (c *Client) RNGRetrieve(dataLength int32) (data []byte, err error) {
-	var resp interface{}
-	resp, err = c.Send(OPERATION_RNG_RETRIEVE,
-		RNGRetrieveRequest{
-			DataLength: dataLength,
-		})
+func (c *Client) RNGRetrieve(request RNGRetrieveRequest) (RNGRetrieveResponse, error) {
+	resp, err := c.Send(OPERATION_RNG_RETRIEVE, request)
 	if err != nil {
-		return nil, err
+		return RNGRetrieveResponse{}, err
 	}
 
-	data = resp.(RNGRetrieveResponse).Data
-	return
+	rngretrieveResp, ok := resp.(RNGRetrieveResponse)
+	if !ok {
+		return RNGRetrieveResponse{}, errors.New("unexpected response type")
+	}
+
+	return rngretrieveResp, nil
 }
 
 // Send request to server and deliver response/error back
