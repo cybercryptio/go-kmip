@@ -6,7 +6,6 @@ package kmip
 
 import (
 	"crypto/tls"
-	"errors"
 	"time"
 
 	"github.com/pkg/errors"
