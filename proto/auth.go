@@ -19,15 +19,13 @@ type Authentication struct {
 }
 
 // BuildFieldValue builds value for CredentialValue based on CredentialType
-func (a *Authentication) BuildFieldValue(name string) (v interface{}, err error) {
+func (a *Authentication) BuildFieldValue(name string) (interface{}, error) {
 	switch a.CredentialType {
 	case ttlv.CREDENTIAL_TYPE_USERNAME_AND_PASSWORD:
-		v = &CredentialUsernamePassword{}
+		return &CredentialUsernamePassword{}, nil
 	default:
-		err = errors.Errorf("unsupported credential type: %v", a.CredentialType)
+		return nil, errors.Errorf("unsupported credential type: %v", a.CredentialType)
 	}
-
-	return
 }
 
 // CredentialUsernamePassword is a Credential structure for username/password authentication

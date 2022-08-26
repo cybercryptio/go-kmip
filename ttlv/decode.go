@@ -44,38 +44,33 @@ func NewDecoder(r io.Reader) *Decoder {
 	return d
 }
 
-func (d *Decoder) internalReadTag() (t Tag, err error) {
+func (d *Decoder) internalReadTag() (Tag, error) {
 	var b [3]byte
-
-	_, err = io.ReadFull(d.r, b[:])
-	if err != nil {
-		return
+	if _, err := io.ReadFull(d.r, b[:]); err != nil {
+		return Tag(0), err
 	}
 
-	t = Tag(binary.BigEndian.Uint32(append([]byte{0}, b[:]...)))
-
-	return
+	return Tag(binary.BigEndian.Uint32(append([]byte{0}, b[:]...))), nil
 }
 
 func (d *Decoder) readTag() (t Tag, err error) {
 	if d.lastTag != 0 {
-		t, d.lastTag = d.lastTag, 0
-		return
+		t := d.lastTag
+		d.lastTag = 0
+		return t, nil
 	}
 
-	t, err = d.internalReadTag()
-	return
+	return d.internalReadTag()
 }
 
-func (d *Decoder) peekTag() (t Tag, err error) {
+func (d *Decoder) peekTag() (Tag, error) {
 	if d.lastTag != 0 {
 		return d.lastTag, nil
 	}
 
-	d.lastTag, err = d.internalReadTag()
-	t = d.lastTag
-
-	return
+	t, err := d.internalReadTag()
+	d.lastTag = t
+	return t, err
 }
 
 func (d *Decoder) expectTag(expected Tag) error {
@@ -91,13 +86,9 @@ func (d *Decoder) expectTag(expected Tag) error {
 	return nil
 }
 
-func (d *Decoder) readType() (t Type, err error) {
-	var b byte
-
-	b, err = d.s.ReadByte()
-	t = Type(b)
-
-	return
+func (d *Decoder) readType() (Type, error) {
+	b, err := d.s.ReadByte()
+	return Type(b), err
 }
 
 func (d *Decoder) expectType(expected Type) error {
@@ -113,17 +104,12 @@ func (d *Decoder) expectType(expected Type) error {
 	return nil
 }
 
-func (d *Decoder) readLength() (l uint32, err error) {
+func (d *Decoder) readLength() (uint32, error) {
 	var b [4]byte
-
-	_, err = io.ReadFull(d.r, b[:])
-	if err != nil {
-		return
+	if _, err := io.ReadFull(d.r, b[:]); err != nil {
+		return 0, err
 	}
-
-	l = binary.BigEndian.Uint32(b[:])
-
-	return
+	return binary.BigEndian.Uint32(b[:]), nil
 }
 
 func (d *Decoder) expectLength(expected uint32) error {
@@ -284,105 +270,79 @@ func (d *Decoder) decodeValue(f field, t reflect.Type, ff reflect.Value) (n int,
 	return
 }
 
-func (d *Decoder) decode(rv reflect.Value, structD *structDesc) (n int, err error) {
+func (d *Decoder) decode(rv reflect.Value, structD *structDesc) (int, error) { //nolint:gocognit
 	if rv.Kind() == reflect.Ptr {
 		rv = rv.Elem()
 	}
-
-	if err = d.expectTag(structD.tag); err != nil {
-		return
+	if err := d.expectTag(structD.tag); err != nil {
+		return 0, err
+	}
+	if err := d.expectType(STRUCTURE); err != nil {
+		return 0, err
 	}
 
-	if err = d.expectType(STRUCTURE); err != nil {
-		return
+	expectedLen, err := d.readLength()
+	if err != nil {
+		return 0, err
 	}
-
-	n += 4
-
-	var expectedLen, actualLen uint32
-	if expectedLen, err = d.readLength(); err != nil {
-		return
-	}
-
-	n += 4
+	actualLen := uint32(0)
 
 	// initialize wrapped decoder with limited reader
 	dd := NewDecoder(io.LimitReader(d.r, int64(expectedLen)))
-
 	for _, f := range structD.fields {
-		var tag Tag
-		tag, err = dd.peekTag()
-
+		tag, err := dd.peekTag()
 		if err == io.EOF && !f.required {
-			err = nil
 			continue
 		}
-
 		if err != nil {
-			err = errors.Wrapf(err, "error reading field %v", f.name)
-			return
+			return 0, errors.Wrapf(err, "error reading field %v", f.name)
 		}
-
 		if !f.required && tag != f.tag && f.tag != ANY_TAG {
 			continue
 		}
 
-		var (
-			nn int
-			v  interface{}
-		)
-
 		ff := rv.FieldByIndex(f.idx)
-
 		if f.sliceof {
 			ff.Set(reflect.MakeSlice(ff.Type(), 0, 0))
 
 			for {
-				nn, v, err = dd.decodeValue(f, ff.Type().Elem(), rv)
+				nn, v, err := dd.decodeValue(f, ff.Type().Elem(), rv)
 				if err != nil {
-					err = errors.Wrapf(err, "error reading field %v", f.name)
-					return
+					return 0, errors.Wrapf(err, "error reading field %v", f.name)
 				}
-
-				n += nn
-				actualLen += uint32(nn)
-
 				if !f.skip {
 					ff.Set(reflect.Append(ff, reflect.ValueOf(v)))
 				}
 
+				actualLen += uint32(nn)
 				if actualLen >= expectedLen {
 					break
 				}
 
 				tag, err = dd.peekTag()
 				if err != nil {
-					return
+					return 0, err
 				}
-
 				if tag != f.tag {
 					break
 				}
 			}
 		} else {
-			nn, v, err = dd.decodeValue(f, ff.Type(), rv)
+			nn, v, err := dd.decodeValue(f, ff.Type(), rv)
 			if err != nil {
-				err = errors.Wrapf(err, "error reading field %v", f.name)
-				return
+				return 0, errors.Wrapf(err, "error reading field %v", f.name)
 			}
-
-			n += nn
-			actualLen += uint32(nn)
-
 			if !f.skip {
 				ff.Set(reflect.ValueOf(v))
 			}
+
+			actualLen += uint32(nn)
 		}
 	}
 
 	if actualLen != expectedLen {
-		err = errors.Errorf("error reading structure expected %d != actual %d", expectedLen, actualLen)
+		return 0, errors.Errorf("error reading structure expected %d != actual %d", expectedLen, actualLen)
 	}
 
-	return
+	return int(actualLen) + 8, nil
 }

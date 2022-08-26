@@ -12,213 +12,185 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (d *Decoder) readInteger(expectedTag Tag) (v int32, err error) {
-	if err = d.expectTag(expectedTag); err != nil {
-		return
+func (d *Decoder) readInteger(expectedTag Tag) (int32, error) {
+	if err := d.expectTag(expectedTag); err != nil {
+		return 0, err
 	}
 
-	if err = d.expectType(INTEGER); err != nil {
-		return
+	if err := d.expectType(INTEGER); err != nil {
+		return 0, err
 	}
 
-	if err = d.expectLength(4); err != nil {
-		return
+	if err := d.expectLength(4); err != nil {
+		return 0, err
 	}
 
 	var b [8]byte
-
-	_, err = io.ReadFull(d.r, b[:])
-	if err != nil {
-		return
+	if _, err := io.ReadFull(d.r, b[:]); err != nil {
+		return 0, err
 	}
 
-	v = int32(binary.BigEndian.Uint32(b[:4]))
-
-	return
+	return int32(binary.BigEndian.Uint32(b[:4])), nil
 }
 
-func (d *Decoder) readLongInteger(expectedTag Tag) (v int64, err error) {
-	if err = d.expectTag(expectedTag); err != nil {
-		return
+func (d *Decoder) readLongInteger(expectedTag Tag) (int64, error) {
+	if err := d.expectTag(expectedTag); err != nil {
+		return 0, err
 	}
 
-	if err = d.expectType(LONG_INTEGER); err != nil {
-		return
+	if err := d.expectType(LONG_INTEGER); err != nil {
+		return 0, err
 	}
 
-	if err = d.expectLength(8); err != nil {
-		return
+	if err := d.expectLength(8); err != nil {
+		return 0, err
 	}
 
 	var b [8]byte
-
-	_, err = io.ReadFull(d.r, b[:])
-	if err != nil {
-		return
+	if _, err := io.ReadFull(d.r, b[:]); err != nil {
+		return 0, err
 	}
 
-	v = int64(binary.BigEndian.Uint64(b[:]))
-
-	return
+	return int64(binary.BigEndian.Uint64(b[:])), nil
 }
 
-func (d *Decoder) readEnum(expectedTag Tag) (v Enum, err error) {
-	if err = d.expectTag(expectedTag); err != nil {
-		return
+func (d *Decoder) readEnum(expectedTag Tag) (Enum, error) {
+	if err := d.expectTag(expectedTag); err != nil {
+		return Enum(0), err
 	}
 
-	if err = d.expectType(ENUMERATION); err != nil {
-		return
+	if err := d.expectType(ENUMERATION); err != nil {
+		return Enum(0), err
 	}
 
-	if err = d.expectLength(4); err != nil {
-		return
+	if err := d.expectLength(4); err != nil {
+		return Enum(0), err
 	}
 
 	var b [8]byte
-
-	_, err = io.ReadFull(d.r, b[:])
-	if err != nil {
-		return
+	if _, err := io.ReadFull(d.r, b[:]); err != nil {
+		return Enum(0), err
 	}
 
-	v = Enum(binary.BigEndian.Uint32(b[:4]))
-
-	return
+	return Enum(binary.BigEndian.Uint32(b[:4])), nil
 }
 
-func (d *Decoder) readBool(expectedTag Tag) (v bool, err error) {
-	if err = d.expectTag(expectedTag); err != nil {
-		return
+func (d *Decoder) readBool(expectedTag Tag) (bool, error) {
+	if err := d.expectTag(expectedTag); err != nil {
+		return false, err
 	}
 
-	if err = d.expectType(BOOLEAN); err != nil {
-		return
+	if err := d.expectType(BOOLEAN); err != nil {
+		return false, err
 	}
 
-	if err = d.expectLength(8); err != nil {
-		return
+	if err := d.expectLength(8); err != nil {
+		return false, err
 	}
 
 	var b [8]byte
-
-	_, err = io.ReadFull(d.r, b[:])
-	if err != nil {
-		return
+	if _, err := io.ReadFull(d.r, b[:]); err != nil {
+		return false, err
 	}
 
 	for i := 0; i < 7; i++ {
 		if b[i] != 0 {
-			err = errors.Errorf("unexpected boolean value: %v", b)
-			return
+			return false, errors.Errorf("unexpected boolean value: %v", b)
 		}
 	}
 
 	switch b[7] {
 	case 1:
-		v = true
+		return true, nil
 	case 0:
-		v = false
+		return false, nil
 	default:
-		err = errors.Errorf("unexpected boolean value: %v", b)
+		return false, errors.Errorf("unexpected boolean value: %v", b)
 	}
-
-	return
 }
 
-func (d *Decoder) readByteSlice(expectedTag Tag, expectedType Type) (n int, v []byte, err error) {
-	if err = d.expectTag(expectedTag); err != nil {
-		return
+func (d *Decoder) readByteSlice(expectedTag Tag, expectedType Type) (int, []byte, error) {
+	if err := d.expectTag(expectedTag); err != nil {
+		return 0, nil, err
 	}
 
-	if err = d.expectType(expectedType); err != nil {
-		return
+	if err := d.expectType(expectedType); err != nil {
+		return 0, nil, err
 	}
 
-	var l uint32
-	if l, err = d.readLength(); err != nil {
-		return
-	}
-
-	v = make([]byte, l)
-	_, err = io.ReadFull(d.r, v)
+	l, err := d.readLength()
 	if err != nil {
-		return
+		return 0, nil, err
 	}
 
-	n = int(l) + 8
+	v := make([]byte, l)
+	if _, err = io.ReadFull(d.r, v); err != nil {
+		return 0, nil, err
+	}
+
+	n := int(l) + 8
 
 	// padding
 	var b [8]byte
 	if l%8 != 0 {
 		_, err = io.ReadFull(d.r, b[:8-l%8])
 		if err != nil {
-			return
+			return 0, nil, err
 		}
 		n += int(8 - l%8)
 	}
 
-	return
+	return n, v, nil
 }
 
-func (d *Decoder) readBytes(expectedTag Tag) (n int, v []byte, err error) {
-	n, v, err = d.readByteSlice(expectedTag, BYTE_STRING)
-	return
+func (d *Decoder) readBytes(expectedTag Tag) (int, []byte, error) {
+	return d.readByteSlice(expectedTag, BYTE_STRING)
 }
 
 func (d *Decoder) readString(expectedTag Tag) (n int, v string, err error) {
 	var b []byte
 	n, b, err = d.readByteSlice(expectedTag, TEXT_STRING)
-	v = string(b)
-	return
+	return n, string(b), err
 }
 
-func (d *Decoder) readTime(expectedTag Tag) (v time.Time, err error) {
-	if err = d.expectTag(expectedTag); err != nil {
-		return
+func (d *Decoder) readTime(expectedTag Tag) (time.Time, error) {
+	if err := d.expectTag(expectedTag); err != nil {
+		return time.Time{}, nil
 	}
 
-	if err = d.expectType(DATE_TIME); err != nil {
-		return
+	if err := d.expectType(DATE_TIME); err != nil {
+		return time.Time{}, nil
 	}
 
-	if err = d.expectLength(8); err != nil {
-		return
+	if err := d.expectLength(8); err != nil {
+		return time.Time{}, nil
 	}
 
 	var b [8]byte
-
-	_, err = io.ReadFull(d.r, b[:])
-	if err != nil {
-		return
+	if _, err := io.ReadFull(d.r, b[:]); err != nil {
+		return time.Time{}, nil
 	}
 
-	v = time.Unix(int64(binary.BigEndian.Uint64(b[:])), 0)
-
-	return
+	return time.Unix(int64(binary.BigEndian.Uint64(b[:])), 0), nil
 }
 
-func (d *Decoder) readDuration(expectedTag Tag) (v time.Duration, err error) {
-	if err = d.expectTag(expectedTag); err != nil {
-		return
+func (d *Decoder) readDuration(expectedTag Tag) (time.Duration, error) {
+	if err := d.expectTag(expectedTag); err != nil {
+		return time.Duration(0), err
 	}
 
-	if err = d.expectType(INTERVAL); err != nil {
-		return
+	if err := d.expectType(INTERVAL); err != nil {
+		return time.Duration(0), err
 	}
 
-	if err = d.expectLength(4); err != nil {
-		return
+	if err := d.expectLength(4); err != nil {
+		return time.Duration(0), err
 	}
 
 	var b [8]byte
-
-	_, err = io.ReadFull(d.r, b[:])
-	if err != nil {
-		return
+	if _, err := io.ReadFull(d.r, b[:]); err != nil {
+		return time.Duration(0), err
 	}
 
-	v = time.Duration(binary.BigEndian.Uint32(b[:4])) * time.Second
-
-	return
+	return time.Duration(binary.BigEndian.Uint32(b[:4])) * time.Second, nil
 }

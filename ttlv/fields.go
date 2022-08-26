@@ -28,14 +28,14 @@ type structDesc struct {
 	fields []field
 }
 
-func parseTag(tag string) (name, opt string) {
+func parseTag(tag string) (string, string) {
 	parts := strings.SplitN(tag, ",", 2)
-	name = parts[0]
+	name, opt := parts[0], ""
 	if len(parts) > 1 {
 		opt = parts[1]
 	}
 
-	return
+	return name, opt
 }
 
 func guessType(ft reflect.Type, f *field) error {

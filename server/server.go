@@ -328,18 +328,16 @@ func (s *Server) serve(conn net.Conn, session string) {
 	}
 }
 
-func (s *Server) handleBatch(session *SessionContext, req *proto.Request) (resp *proto.Response, err error) {
+func (s *Server) handleBatch(session *SessionContext, req *proto.Request) (*proto.Response, error) {
 	if int(req.Header.BatchCount) != len(req.BatchItems) {
-		err = errors.Errorf("request batch count doesn't match number of batch items: %d != %d", req.Header.BatchCount, len(req.BatchItems))
-		return
+		return nil, errors.Errorf("request batch count doesn't match number of batch items: %d != %d", req.Header.BatchCount, len(req.BatchItems))
 	}
 
 	if req.Header.AsynchronousIndicator {
-		err = errors.New("asynchnronous requests are not supported")
-		return
+		return nil, errors.New("asynchnronous requests are not supported")
 	}
 
-	resp = &proto.Response{
+	resp := &proto.Response{
 		Header: proto.ResponseHeader{
 			Version:                req.Header.Version,
 			TimeStamp:              time.Now(),
@@ -355,26 +353,20 @@ func (s *Server) handleBatch(session *SessionContext, req *proto.Request) (resp 
 
 	if req.Header.Authentication.CredentialType != 0 {
 		if s.RequestAuthHandler == nil {
-			err = errors.New("request has authentication set, but no auth handler configured")
-			return
+			return nil, errors.New("request has authentication set, but no auth handler configured")
 		}
-		requestCtx.RequestAuth, err = s.RequestAuthHandler(session, &req.Header.Authentication)
+		requestAuth, err := s.RequestAuthHandler(session, &req.Header.Authentication)
 		if err != nil {
-			err = errors.Wrap(err, "error running auth handler")
-			return
+			return nil, errors.Wrap(err, "error running auth handler")
 		}
+		requestCtx.RequestAuth = requestAuth
 	}
 
 	for i := range req.BatchItems {
 		resp.BatchItems[i].Operation = req.BatchItems[i].Operation
 		resp.BatchItems[i].UniqueID = append([]byte(nil), req.BatchItems[i].UniqueID...)
 
-		var (
-			batchResp interface{}
-			batchErr  error
-		)
-
-		batchResp, batchErr = s.handleWrapped(requestCtx, &req.BatchItems[i])
+		batchResp, batchErr := s.handleWrapped(requestCtx, &req.BatchItems[i])
 		if batchErr != nil {
 			s.Log.Printf("[WARN] [%s] Request failed, operation %v: %s", requestCtx.SessionID, ttlv.OperationMap[req.BatchItems[i].Operation], batchErr)
 
@@ -393,7 +385,7 @@ func (s *Server) handleBatch(session *SessionContext, req *proto.Request) (resp 
 		}
 	}
 
-	return
+	return resp, nil
 }
 
 func (s *Server) handleWrapped(request *RequestContext, item *proto.RequestBatchItem) (resp interface{}, err error) {
@@ -402,49 +394,42 @@ func (s *Server) handleWrapped(request *RequestContext, item *proto.RequestBatch
 			err = errors.Errorf("panic: %s", p)
 
 			buf := make([]byte, 8192)
-
 			n := runtime.Stack(buf, false)
 			s.Log.Printf("[ERROR] [%s] Panic in request handler, operation %s: %s", request.SessionID, ttlv.OperationMap[item.Operation], string(buf[:n]))
 		}
 	}()
 
 	handler := s.handlers[item.Operation]
-
 	if handler == nil {
-		err = WrapError(errors.New("operation not supported"), ttlv.RESULT_REASON_OPERATION_NOT_SUPPORTED)
-		return
+		return nil, WrapError(errors.New("operation not supported"), ttlv.RESULT_REASON_OPERATION_NOT_SUPPORTED)
 	}
 
-	resp, err = handler(request, item)
-	return
+	return handler(request, item)
 }
 
-func (s *Server) handleDiscoverVersions(req *RequestContext, item *proto.RequestBatchItem) (resp interface{}, err error) {
-	response := proto.DiscoverVersionsResponse{}
-
+func (s *Server) handleDiscoverVersions(req *RequestContext, item *proto.RequestBatchItem) (interface{}, error) {
 	request, ok := item.RequestPayload.(proto.DiscoverVersionsRequest)
 	if !ok {
-		err = WrapError(errors.New("wrong request body"), ttlv.RESULT_REASON_INVALID_MESSAGE)
-		return
+		return nil, WrapError(errors.New("wrong request body"), ttlv.RESULT_REASON_INVALID_MESSAGE)
 	}
 
+	// return all the versions
 	if len(request.ProtocolVersions) == 0 {
-		// return all the versions
-		response.ProtocolVersions = append([]proto.ProtocolVersion(nil), s.SupportedVersions...)
-	} else {
-		// find matching versions
-		for _, version := range request.ProtocolVersions {
-			for _, v := range s.SupportedVersions {
-				if version == v {
-					response.ProtocolVersions = append(response.ProtocolVersions, v)
-					break
-				}
+		return proto.DiscoverVersionsResponse{ProtocolVersions: s.SupportedVersions}, nil
+	}
+
+	// find matching versions
+	response := proto.DiscoverVersionsResponse{}
+	for _, version := range request.ProtocolVersions {
+		for _, v := range s.SupportedVersions {
+			if version == v {
+				response.ProtocolVersions = append(response.ProtocolVersions, v)
+				break
 			}
 		}
 	}
 
-	resp = response
-	return
+	return response, nil
 }
 
 // DefaultSupportedVersions is a default list of supported KMIP versions

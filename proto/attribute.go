@@ -25,38 +25,35 @@ type Attribute struct {
 func (a *Attribute) BuildFieldValue(name string) (v interface{}, err error) {
 	switch a.Name {
 	case ttlv.ATTRIBUTE_NAME_CRYPTOGRAPHIC_ALGORITHM:
-		v = ttlv.Enum(0)
+		return ttlv.Enum(0), nil
 	case ttlv.ATTRIBUTE_NAME_CRYPTOGRAPHIC_LENGTH, ttlv.ATTRIBUTE_NAME_CRYPTOGRAPHIC_USAGE_MASK:
-		v = int32(0)
+		return int32(0), nil
 	case ttlv.ATTRIBUTE_NAME_UNIQUE_IDENTIFIER, ttlv.ATTRIBUTE_NAME_OPERATION_POLICY_NAME:
-		v = ""
+		return "", nil
 	case ttlv.ATTRIBUTE_NAME_OBJECT_TYPE, ttlv.ATTRIBUTE_NAME_STATE:
-		v = ttlv.Enum(0)
+		return ttlv.Enum(0), nil
 	case ttlv.ATTRIBUTE_NAME_INITIAL_DATE, ttlv.ATTRIBUTE_NAME_LAST_CHANGE_DATE:
-		v = time.Time{}
+		return time.Time{}, nil
 	case ttlv.ATTRIBUTE_NAME_NAME:
-		v = &Name{}
+		return &Name{}, nil
 	case ttlv.ATTRIBUTE_NAME_DIGEST:
-		v = &Digest{}
+		return &Digest{}, nil
 	default:
-		err = errors.Errorf("unsupported attribute: %v", a.Name)
+		return nil, errors.Errorf("unsupported attribute: %v", a.Name)
 	}
-
-	return
 }
 
 // Attributes is a sequence of Attribute objects which allows building and search
 type Attributes []Attribute
 
-func (attrs Attributes) Get(name string) (val interface{}) {
+func (attrs Attributes) Get(name string) interface{} {
 	for i := range attrs {
 		if attrs[i].Name == name {
-			val = attrs[i].Value
-			break
+			return attrs[i].Value
 		}
 	}
 
-	return
+	return nil
 }
 
 // TemplateAttribute is a Template-Attribute Object Structure

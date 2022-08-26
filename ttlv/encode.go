@@ -47,7 +47,7 @@ func NewEncoder(w io.Writer) *Encoder {
 	}
 }
 
-func (e *Encoder) writeTagTypeLength(t Tag, typ Type, l uint32) (err error) {
+func (e *Encoder) writeTagTypeLength(t Tag, typ Type, l uint32) error {
 	var (
 		b  [8]byte
 		tt [4]byte
@@ -59,11 +59,11 @@ func (e *Encoder) writeTagTypeLength(t Tag, typ Type, l uint32) (err error) {
 	b[3] = byte(typ)
 	binary.BigEndian.PutUint32(b[4:], l)
 
-	_, err = e.w.Write(b[:])
-	return
+	_, err := e.w.Write(b[:])
+	return err
 }
 
-func (e *Encoder) Encode(v interface{}) (err error) {
+func (e *Encoder) Encode(v interface{}) error {
 	rv := reflect.ValueOf(v)
 	if !rv.IsValid() {
 		return errors.New("invalid value")
@@ -75,17 +75,15 @@ func (e *Encoder) Encode(v interface{}) (err error) {
 		return errors.New("invalid pointer value")
 	}
 
-	var structDesc *structDesc
-	structDesc, err = getStructDesc(rv.Type())
+	structDesc, err := getStructDesc(rv.Type())
 	if err != nil {
 		return err
 	}
 
-	err = e.encode(rv, structDesc)
-	return
+	return e.encode(rv, structDesc)
 }
 
-func (e *Encoder) encodeValue(f field, rt reflect.Type, rv reflect.Value) (err error) {
+func (e *Encoder) encodeValue(f field, rt reflect.Type, rv reflect.Value) error {
 	if rv.Kind() == reflect.Interface && !rv.IsNil() {
 		rv = rv.Elem()
 		if rv.Kind() == reflect.Ptr {
@@ -115,37 +113,32 @@ func (e *Encoder) encodeValue(f field, rt reflect.Type, rv reflect.Value) (err e
 
 	switch f.typ {
 	case INTEGER:
-		err = e.writeInteger(f.tag, int32(rv.Int()))
+		return e.writeInteger(f.tag, int32(rv.Int()))
 	case LONG_INTEGER:
-		err = e.writeLongInteger(f.tag, rv.Int())
+		return e.writeLongInteger(f.tag, rv.Int())
 	case ENUMERATION:
-		err = e.writeEnum(f.tag, Enum(rv.Uint()))
+		return e.writeEnum(f.tag, Enum(rv.Uint()))
 	case BOOLEAN:
-		err = e.writeBool(f.tag, rv.Bool())
+		return e.writeBool(f.tag, rv.Bool())
 	case DATE_TIME:
-		err = e.writeTime(f.tag, rv.Interface().(time.Time))
+		return e.writeTime(f.tag, rv.Interface().(time.Time))
 	case INTERVAL:
-		err = e.writeDuration(f.tag, rv.Interface().(time.Duration))
+		return e.writeDuration(f.tag, rv.Interface().(time.Duration))
 	case BYTE_STRING:
-		err = e.writeBytes(f.tag, rv.Bytes())
+		return e.writeBytes(f.tag, rv.Bytes())
 	case TEXT_STRING:
-		err = e.writeString(f.tag, rv.String())
+		return e.writeString(f.tag, rv.String())
 	case STRUCTURE:
-		var structDesc *structDesc
-
-		structDesc, err = getStructDesc(rt)
+		structDesc, err := getStructDesc(rt)
 		if err != nil {
-			return
+			return err
 		}
 
 		structDesc.tag = f.tag
-
-		err = e.encode(rv, structDesc)
+		return e.encode(rv, structDesc)
 	default:
-		err = errors.Errorf("unsupported type for encode, field %v", f.name)
+		return errors.Errorf("unsupported type for encode, field %v", f.name)
 	}
-
-	return
 }
 
 func isZeroValue(rv reflect.Value) (bool, error) {
@@ -186,7 +179,7 @@ func isZeroValue(rv reflect.Value) (bool, error) {
 	}
 }
 
-func (e *Encoder) encode(rv reflect.Value, sd *structDesc) (err error) {
+func (e *Encoder) encode(rv reflect.Value, sd *structDesc) error {
 	// build new encoder to encode into temp buf (to know the length)
 	var buf bytes.Buffer
 
@@ -201,17 +194,15 @@ func (e *Encoder) encode(rv reflect.Value, sd *structDesc) (err error) {
 
 		if f.sliceof {
 			for i := 0; i < ff.Len(); i++ {
-				err = ee.encodeValue(f, ff.Type().Elem(), ff.Index(i))
-				if err != nil {
-					return
+				if err := ee.encodeValue(f, ff.Type().Elem(), ff.Index(i)); err != nil {
+					return err
 				}
 			}
 		} else {
 			if !f.required {
-				var isZero bool
-				isZero, err = isZeroValue(ff)
+				isZero, err := isZeroValue(ff)
 				if err != nil {
-					return
+					return err
 				}
 
 				if isZero {
@@ -219,18 +210,16 @@ func (e *Encoder) encode(rv reflect.Value, sd *structDesc) (err error) {
 				}
 			}
 
-			err = ee.encodeValue(f, ff.Type(), ff)
-			if err != nil {
-				return
+			if err := ee.encodeValue(f, ff.Type(), ff); err != nil {
+				return err
 			}
 		}
 	}
 
-	err = e.writeTagTypeLength(sd.tag, STRUCTURE, uint32(buf.Len()))
-	if err != nil {
-		return
+	if err := e.writeTagTypeLength(sd.tag, STRUCTURE, uint32(buf.Len())); err != nil {
+		return err
 	}
 
-	_, err = io.Copy(e.w, &buf)
-	return
+	_, err := io.Copy(e.w, &buf)
+	return err
 }

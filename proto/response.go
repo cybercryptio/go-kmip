@@ -46,45 +46,43 @@ type ResponseBatchItem struct {
 }
 
 // BuildFieldValue builds value for ResponsePayload based on Operation
-func (bi *ResponseBatchItem) BuildFieldValue(name string) (v interface{}, err error) {
+func (bi *ResponseBatchItem) BuildFieldValue(name string) (interface{}, error) {
 	switch bi.Operation {
 	case ttlv.OPERATION_CREATE:
-		v = &CreateResponse{}
+		return &CreateResponse{}, nil
 	case ttlv.OPERATION_CREATE_KEY_PAIR:
-		v = &CreateKeyPairResponse{}
+		return &CreateKeyPairResponse{}, nil
 	case ttlv.OPERATION_GET:
-		v = &GetResponse{}
+		return &GetResponse{}, nil
 	case ttlv.OPERATION_GET_ATTRIBUTES:
-		v = &GetAttributesResponse{}
+		return &GetAttributesResponse{}, nil
 	case ttlv.OPERATION_GET_ATTRIBUTE_LIST:
-		v = &GetAttributeListResponse{}
+		return &GetAttributeListResponse{}, nil
 	case ttlv.OPERATION_ACTIVATE:
-		v = &ActivateResponse{}
+		return &ActivateResponse{}, nil
 	case ttlv.OPERATION_REVOKE:
-		v = &RevokeResponse{}
+		return &RevokeResponse{}, nil
 	case ttlv.OPERATION_DESTROY:
-		v = &DestroyResponse{}
+		return &DestroyResponse{}, nil
 	case ttlv.OPERATION_DISCOVER_VERSIONS:
-		v = &DiscoverVersionsResponse{}
+		return &DiscoverVersionsResponse{}, nil
 	case ttlv.OPERATION_ENCRYPT:
-		v = &EncryptResponse{}
+		return &EncryptResponse{}, nil
 	case ttlv.OPERATION_DECRYPT:
-		v = &DecryptResponse{}
+		return &DecryptResponse{}, nil
 	case ttlv.OPERATION_SIGN:
-		v = &SignResponse{}
+		return &SignResponse{}, nil
 	case ttlv.OPERATION_REGISTER:
-		v = &RegisterResponse{}
+		return &RegisterResponse{}, nil
 	case ttlv.OPERATION_LOCATE:
-		v = &LocateResponse{}
+		return &LocateResponse{}, nil
 	case ttlv.OPERATION_REKEY:
-		v = &ReKeyResponse{}
+		return &ReKeyResponse{}, nil
 	case ttlv.OPERATION_QUERY:
-		v = &QueryResponse{}
+		return &QueryResponse{}, nil
 	default:
-		err = errors.Errorf("unsupported operation: %v", bi.Operation)
+		return nil, errors.Errorf("unsupported operation: %v", bi.Operation)
 	}
-
-	return
 }
 
 // Nonce object is a structure used by the server to send a random value to the client

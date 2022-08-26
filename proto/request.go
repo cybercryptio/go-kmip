@@ -49,33 +49,31 @@ type RequestBatchItem struct {
 }
 
 // BuildFieldValue builds value for RequestPayload based on Operation
-func (bi *RequestBatchItem) BuildFieldValue(name string) (v interface{}, err error) {
+func (bi *RequestBatchItem) BuildFieldValue(name string) (interface{}, error) {
 	switch bi.Operation {
 	case ttlv.OPERATION_CREATE:
-		v = &CreateRequest{}
+		return &CreateRequest{}, nil
 	case ttlv.OPERATION_GET:
-		v = &GetRequest{}
+		return &GetRequest{}, nil
 	case ttlv.OPERATION_GET_ATTRIBUTES:
-		v = &GetAttributesRequest{}
+		return &GetAttributesRequest{}, nil
 	case ttlv.OPERATION_GET_ATTRIBUTE_LIST:
-		v = &GetAttributeListRequest{}
+		return &GetAttributeListRequest{}, nil
 	case ttlv.OPERATION_DESTROY:
-		v = &DestroyRequest{}
+		return &DestroyRequest{}, nil
 	case ttlv.OPERATION_DISCOVER_VERSIONS:
-		v = &DiscoverVersionsRequest{}
+		return &DiscoverVersionsRequest{}, nil
 	case ttlv.OPERATION_REGISTER:
-		v = &RegisterRequest{}
+		return &RegisterRequest{}, nil
 	case ttlv.OPERATION_ACTIVATE:
-		v = &ActivateRequest{}
+		return &ActivateRequest{}, nil
 	case ttlv.OPERATION_LOCATE:
-		v = &LocateRequest{}
+		return &LocateRequest{}, nil
 	case ttlv.OPERATION_REVOKE:
-		v = &RevokeRequest{}
+		return &RevokeRequest{}, nil
 	case ttlv.OPERATION_QUERY:
-		v = &QueryRequest{}
+		return &QueryRequest{}, nil
 	default:
-		err = errors.Errorf("unsupported operation: %v", bi.Operation)
+		return nil, errors.Errorf("unsupported operation: %v", bi.Operation)
 	}
-
-	return
 }

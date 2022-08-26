@@ -207,10 +207,9 @@ func (c *Client) RNGRetrieve(request proto.RNGRetrieveRequest) (proto.RNGRetriev
 //
 // Send is a generic method, it's better to implement specific methods for
 // each operation (use DiscoverVersions as example).
-func (c *Client) Send(operation ttlv.Enum, req interface{}) (resp interface{}, err error) {
+func (c *Client) Send(operation ttlv.Enum, req interface{}) (interface{}, error) {
 	if c.conn == nil {
-		err = errors.New("not connected")
-		return
+		return nil, errors.New("not connected")
 	}
 
 	request := &proto.Request{
@@ -230,10 +229,8 @@ func (c *Client) Send(operation ttlv.Enum, req interface{}) (resp interface{}, e
 		_ = c.conn.SetWriteDeadline(time.Now().Add(c.WriteTimeout))
 	}
 
-	err = c.e.Encode(request)
-	if err != nil {
-		err = errors.Wrap(err, "error writing request")
-		return
+	if err := c.e.Encode(request); err != nil {
+		return nil, errors.Wrap(err, "error writing request")
 	}
 
 	if c.ReadTimeout != 0 {
@@ -242,32 +239,25 @@ func (c *Client) Send(operation ttlv.Enum, req interface{}) (resp interface{}, e
 
 	var response proto.Response
 
-	err = c.d.Decode(&response)
-	if err != nil {
-		err = errors.Wrap(err, "error reading response")
-		return
+	if err := c.d.Decode(&response); err != nil {
+		return nil, errors.Wrap(err, "error reading response")
 	}
 
 	if response.Header.BatchCount != 1 {
-		err = errors.Errorf("unexepcted response batch count: %d", response.Header.BatchCount)
-		return
+		return nil, errors.Errorf("unexepcted response batch count: %d", response.Header.BatchCount)
 	}
 
 	if len(response.BatchItems) != 1 {
-		err = errors.Errorf("unexpected response batch items: %d", len(response.BatchItems))
-		return
+		return nil, errors.Errorf("unexpected response batch items: %d", len(response.BatchItems))
 	}
 
 	if response.BatchItems[0].Operation != operation {
-		err = errors.Errorf("unexpected response operation: %d", response.BatchItems[0].Operation)
-		return
+		return nil, errors.Errorf("unexpected response operation: %d", response.BatchItems[0].Operation)
 	}
 
 	if response.BatchItems[0].ResultStatus == ttlv.RESULT_STATUS_SUCCESS {
-		resp = response.BatchItems[0].ResponsePayload
-		return
+		return response.BatchItems[0].ResponsePayload, nil
 	}
 
-	err = WrapError(errors.New(response.BatchItems[0].ResultMessage), response.BatchItems[0].ResultReason)
-	return
+	return nil, WrapError(errors.New(response.BatchItems[0].ResultMessage), response.BatchItems[0].ResultReason)
 }

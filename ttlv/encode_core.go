@@ -9,82 +9,68 @@ import (
 	"time"
 )
 
-func (e *Encoder) writeInteger(t Tag, v int32) (err error) {
-	err = e.writeTagTypeLength(t, INTEGER, 4)
-	if err != nil {
-		return
+func (e *Encoder) writeInteger(t Tag, v int32) error {
+	if err := e.writeTagTypeLength(t, INTEGER, 4); err != nil {
+		return err
 	}
 
 	var b [8]byte
-
 	binary.BigEndian.PutUint32(b[:4], uint32(v))
-
-	_, err = e.w.Write(b[:])
-	return
+	_, err := e.w.Write(b[:])
+	return err
 }
 
-func (e *Encoder) writeLongInteger(t Tag, v int64) (err error) {
-	err = e.writeTagTypeLength(t, LONG_INTEGER, 8)
-	if err != nil {
-		return
+func (e *Encoder) writeLongInteger(t Tag, v int64) error {
+	if err := e.writeTagTypeLength(t, LONG_INTEGER, 8); err != nil {
+		return err
 	}
 
 	var b [8]byte
-
 	binary.BigEndian.PutUint64(b[:], uint64(v))
-
-	_, err = e.w.Write(b[:])
-	return
+	_, err := e.w.Write(b[:])
+	return err
 }
 
-func (e *Encoder) writeEnum(t Tag, v Enum) (err error) {
-	err = e.writeTagTypeLength(t, ENUMERATION, 4)
-	if err != nil {
-		return
+func (e *Encoder) writeEnum(t Tag, v Enum) error {
+	if err := e.writeTagTypeLength(t, ENUMERATION, 4); err != nil {
+		return err
 	}
 
 	var b [8]byte
-
 	binary.BigEndian.PutUint32(b[:4], uint32(v))
-
-	_, err = e.w.Write(b[:])
-	return
+	_, err := e.w.Write(b[:])
+	return err
 }
 
-func (e *Encoder) writeBool(t Tag, v bool) (err error) {
-	err = e.writeTagTypeLength(t, BOOLEAN, 8)
-	if err != nil {
-		return
+func (e *Encoder) writeBool(t Tag, v bool) error {
+	if err := e.writeTagTypeLength(t, BOOLEAN, 8); err != nil {
+		return err
 	}
 
 	var b [8]byte
-
 	if v {
 		b[7] = 1
 	}
-
-	_, err = e.w.Write(b[:])
-	return
+	_, err := e.w.Write(b[:])
+	return err
 }
 
-func (e *Encoder) writeByteSlice(t Tag, typ Type, b []byte) (err error) {
-	err = e.writeTagTypeLength(t, typ, uint32(len(b)))
-	if err != nil {
-		return
+func (e *Encoder) writeByteSlice(t Tag, typ Type, b []byte) error {
+	if err := e.writeTagTypeLength(t, typ, uint32(len(b))); err != nil {
+		return err
 	}
 
-	_, err = e.w.Write(b)
-	if err != nil {
-		return
+	if _, err := e.w.Write(b); err != nil {
+		return err
 	}
 
 	if len(b)%8 != 0 {
 		var pad [8]byte
-
-		_, err = e.w.Write(pad[:8-len(b)%8])
+		_, err := e.w.Write(pad[:8-len(b)%8])
+		return err
 	}
 
-	return
+	return nil
 }
 
 func (e *Encoder) writeBytes(t Tag, b []byte) error {
@@ -95,30 +81,24 @@ func (e *Encoder) writeString(t Tag, s string) error {
 	return e.writeByteSlice(t, TEXT_STRING, []byte(s))
 }
 
-func (e *Encoder) writeTime(t Tag, v time.Time) (err error) {
-	err = e.writeTagTypeLength(t, DATE_TIME, 8)
-	if err != nil {
-		return
+func (e *Encoder) writeTime(t Tag, v time.Time) error {
+	if err := e.writeTagTypeLength(t, DATE_TIME, 8); err != nil {
+		return err
 	}
 
 	var b [8]byte
-
 	binary.BigEndian.PutUint64(b[:], uint64(v.Unix()))
-
-	_, err = e.w.Write(b[:])
-	return
+	_, err := e.w.Write(b[:])
+	return err
 }
 
-func (e *Encoder) writeDuration(t Tag, v time.Duration) (err error) {
-	err = e.writeTagTypeLength(t, INTERVAL, 4)
-	if err != nil {
-		return
+func (e *Encoder) writeDuration(t Tag, v time.Duration) error {
+	if err := e.writeTagTypeLength(t, INTERVAL, 4); err != nil {
+		return err
 	}
 
 	var b [8]byte
-
 	binary.BigEndian.PutUint32(b[:4], uint32(v/time.Second))
-
-	_, err = e.w.Write(b[:])
-	return
+	_, err := e.w.Write(b[:])
+	return err
 }
