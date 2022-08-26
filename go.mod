@@ -1,4 +1,4 @@
-module github.com/smira/go-kmip
+module github.com/cybercryptio/go-kmip
 
 go 1.16
 
