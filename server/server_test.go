@@ -345,13 +345,13 @@ func (s *ServerSuite) TestConnectTLSNoCA() {
 
 func (s *ServerSuite) TestOperationGenericFail() {
 	s.server.Handle(ttlv.OPERATION_DISCOVER_VERSIONS, func(req *RequestContext, item *proto.RequestBatchItem) (interface{}, error) {
-		return nil, errors.New("oops!")
+		return nil, errors.New("oops")
 	})
 
 	s.Require().NoError(s.client.Connect())
 
 	_, err := s.client.DiscoverVersions(proto.DiscoverVersionsRequest{})
-	s.Require().EqualError(errors.Cause(err), "oops!")
+	s.Require().EqualError(errors.Cause(err), "oops")
 	s.Require().Equal(errors.Cause(err).(Error).ResultReason(), ttlv.RESULT_REASON_GENERAL_FAILURE)
 }
 
@@ -369,13 +369,13 @@ func (s *ServerSuite) TestOperationPanic() {
 
 func (s *ServerSuite) TestOperationFailWithReason() {
 	s.server.Handle(ttlv.OPERATION_DISCOVER_VERSIONS, func(req *RequestContext, item *proto.RequestBatchItem) (interface{}, error) {
-		return nil, WrapError(errors.New("oops!"), ttlv.RESULT_REASON_CRYPTOGRAPHIC_FAILURE)
+		return nil, WrapError(errors.New("oops"), ttlv.RESULT_REASON_CRYPTOGRAPHIC_FAILURE)
 	})
 
 	s.Require().NoError(s.client.Connect())
 
 	_, err := s.client.DiscoverVersions(proto.DiscoverVersionsRequest{})
-	s.Require().EqualError(errors.Cause(err), "oops!")
+	s.Require().EqualError(errors.Cause(err), "oops")
 	s.Require().Equal(errors.Cause(err).(Error).ResultReason(), ttlv.RESULT_REASON_CRYPTOGRAPHIC_FAILURE)
 }
 

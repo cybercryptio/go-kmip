@@ -265,7 +265,6 @@ func (d *Decoder) decodeValue(f field, t reflect.Type, ff reflect.Value) (n int,
 				return
 			}
 		} else {
-
 			sD, err = getStructDesc(t)
 			if err != nil {
 				return

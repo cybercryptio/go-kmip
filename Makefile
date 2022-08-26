@@ -18,7 +18,7 @@ build: ## Build go project
 lint: ## Lint the codebase
 	gofmt -l -w .
 	go mod tidy
-	golangci-lint run
+	golangci-lint run -E gosec,asciicheck,bodyclose,gocyclo,unconvert,gocognit,misspell,revive,whitespace --timeout 5m
 
 .PHONY: test
 test: ## Run unit tests
