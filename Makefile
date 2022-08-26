@@ -8,7 +8,7 @@ help:  ## Display this help
 
 COMPOSE ?= docker-compose
 
-all: build lint up test down
+all: build lint test integration
 
 .PHONY: build
 build: ## Build go project
@@ -21,14 +21,18 @@ lint: ## Lint the codebase
 	golangci-lint run
 
 .PHONY: test
-test: ## Run tests
-	go test -v -race -coverprofile=coverage.txt -covermode=atomic -count 1 ./...
+test: ## Run unit tests
+	go test -race -count 1 ./...
+
+.PHONY: integration
+integration: up ## Run integration tests
+	go test -race -count 1 -tags integration ./...
+	$(MAKE) down
 
 .PHONY: up
 up: ## Start python test server
-	$(COMPOSE) build --pull pykmip-server
-	$(COMPOSE) run --rm dependencies
+	$(COMPOSE) -f integration/docker-compose.yml up --build --detach
 
 .PHONY: down
 down: ## Stop python test server
-	$(COMPOSE) down -v --remove-orphans
+	$(COMPOSE) -f integration/docker-compose.yml down -v

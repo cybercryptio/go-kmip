@@ -1,4 +1,6 @@
-package client
+//go:build integration
+
+package integration
 
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -10,17 +12,18 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	kc "github.com/cybercryptio/go-kmip/client"
 	"github.com/cybercryptio/go-kmip/proto"
 	"github.com/cybercryptio/go-kmip/ttlv"
 )
 
-func MakeTestClient() (Client, error) {
-	cert, err := tls.LoadX509KeyPair("../pykmip-server/server.cert", "../pykmip-server/server.key")
+func MakeTestClient() (kc.Client, error) {
+	cert, err := tls.LoadX509KeyPair("./server.cert", "./server.key")
 	if err != nil {
-		return Client{}, err
+		return kc.Client{}, err
 	}
 
-	client := Client{
+	client := kc.Client{
 		Endpoint: "127.0.0.1:5696",
 		TLSConfig: &tls.Config{
 			MinVersion:   tls.VersionTLS12,
@@ -34,7 +37,7 @@ func MakeTestClient() (Client, error) {
 	}
 
 	if err = client.Connect(); err != nil {
-		return Client{}, err
+		return kc.Client{}, err
 	}
 
 	return client, nil

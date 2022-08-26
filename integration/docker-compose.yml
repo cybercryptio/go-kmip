@@ -1,0 +1,13 @@
+services:
+  dependencies:
+    image: waisbrot/wait
+    environment:
+      TARGETS: pykmip-server:5696
+    depends_on:
+      - pykmip-server
+
+  pykmip-server:
+    build:
+      context: .
+    ports:
+      - 5696:5696
