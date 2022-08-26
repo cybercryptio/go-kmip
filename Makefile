@@ -22,7 +22,7 @@ lint: ## Lint the codebase
 
 .PHONY: test
 test: ## Run tests
-	go test -v -race -coverprofile=coverage.txt -covermode=atomic -count 1 .
+	go test -v -race -coverprofile=coverage.txt -covermode=atomic -count 1 ./...
 
 .PHONY: up
 up: ## Start python test server

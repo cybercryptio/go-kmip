@@ -1,4 +1,4 @@
-package kmip
+package ttlv
 
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -139,98 +139,6 @@ func (s *EncoderSuite) TestEncodeStructWithTimeInterval() {
 
 	s.Assert().EqualValues(s.parseSpecValue("42 00 20 | 01 | 00 00 00 20 | 42 00 05 | 09 | 00 00 00 08 | 00 00 00 00 47 DA 67 F8 |"+
 		" 42 00 01 | 0A | 00 00 00 04 |  00 0D 2F 00 00 00 00 00"), buf.Bytes())
-}
-
-func (s *EncoderSuite) TestEncodeMessageCreate() {
-	var buf bytes.Buffer
-
-	createRequest := Request{
-		Header: RequestHeader{
-			Version:    ProtocolVersion{Major: 1, Minor: 1},
-			BatchCount: 1,
-		},
-		BatchItems: []RequestBatchItem{
-			{
-				Operation: OPERATION_CREATE,
-				RequestPayload: CreateRequest{
-					ObjectType: OBJECT_TYPE_SYMMETRIC_KEY,
-					TemplateAttribute: TemplateAttribute{
-						Attributes: []Attribute{
-							{
-								Name:  ATTRIBUTE_NAME_CRYPTOGRAPHIC_ALGORITHM,
-								Value: CRYPTO_AES,
-							},
-							{
-								Name:  ATTRIBUTE_NAME_CRYPTOGRAPHIC_LENGTH,
-								Value: int32(128),
-							},
-							{
-								Name:  ATTRIBUTE_NAME_CRYPTOGRAPHIC_USAGE_MASK,
-								Value: int32(12),
-							},
-							{
-								Name:  ATTRIBUTE_NAME_INITIAL_DATE,
-								Value: time.Unix(12345, 0),
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	err := NewEncoder(&buf).Encode(&createRequest)
-	s.Assert().NoError(err)
-
-	s.Assert().EqualValues(messageCreate, buf.Bytes())
-}
-
-func (s *EncoderSuite) TestEncodeMessageGet() {
-	var buf bytes.Buffer
-
-	getRequest := Request{
-		Header: RequestHeader{
-			Version:    ProtocolVersion{Major: 1, Minor: 1},
-			BatchCount: 1,
-		},
-		BatchItems: []RequestBatchItem{
-			{
-				Operation: OPERATION_GET,
-				RequestPayload: GetRequest{
-					UniqueIdentifier: "49a1ca88-6bea-4fb2-b450-7e58802c3038",
-				},
-			},
-		},
-	}
-
-	err := NewEncoder(&buf).Encode(&getRequest)
-	s.Assert().NoError(err)
-
-	s.Assert().EqualValues(messageGet, buf.Bytes())
-}
-
-func (s *EncoderSuite) TestEncodeMessageGetPointer() {
-	var buf bytes.Buffer
-
-	getRequest := Request{
-		Header: RequestHeader{
-			Version:    ProtocolVersion{Major: 1, Minor: 1},
-			BatchCount: 1,
-		},
-		BatchItems: []RequestBatchItem{
-			{
-				Operation: OPERATION_GET,
-				RequestPayload: &GetRequest{
-					UniqueIdentifier: "49a1ca88-6bea-4fb2-b450-7e58802c3038",
-				},
-			},
-		},
-	}
-
-	err := NewEncoder(&buf).Encode(&getRequest)
-	s.Assert().NoError(err)
-
-	s.Assert().EqualValues(messageGet, buf.Bytes())
 }
 
 func TestEncoderSuite(t *testing.T) {

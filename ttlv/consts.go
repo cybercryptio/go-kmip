@@ -1,4 +1,4 @@
-package kmip
+package ttlv
 
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -1201,7 +1201,7 @@ var tagMap = map[string]Tag{
 	"ADJUSTMENT_VALUE":                         ADJUSTMENT_VALUE,
 }
 
-var operationMap = map[Enum]string{
+var OperationMap = map[Enum]string{
 	OPERATION_CREATE:               "OPERATION_CREATE",
 	OPERATION_CREATE_KEY_PAIR:      "OPERATION_CREATE_KEY_PAIR",
 	OPERATION_REGISTER:             "OPERATION_REGISTER",

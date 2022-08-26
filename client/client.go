@@ -1,4 +1,4 @@
-package kmip
+package client
 
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -9,9 +9,39 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
+	"github.com/cybercryptio/go-kmip/proto"
+	"github.com/cybercryptio/go-kmip/ttlv"
 )
 
+// Error enhances error with "Result Reason" field
+//
+// Any Error instance is returned back to the caller with message and
+// result reason set, any other Go error is returned as "General Failure"
+type Error interface {
+	error
+	ResultReason() ttlv.Enum
+}
+
+type protocolError struct {
+	error
+	reason ttlv.Enum
+}
+
+func (e protocolError) ResultReason() ttlv.Enum {
+	return e.reason
+}
+
+func WrapError(err error, reason ttlv.Enum) protocolError {
+	return protocolError{err, reason}
+}
+
 var ErrResponseType = errors.New("unexpected response type")
+
+// DefaultClientTLSConfig fills in good defaults for client TLS configuration
+func DefaultClientTLSConfig(config *tls.Config) {
+	config.MinVersion = tls.VersionTLS12
+}
 
 // Client implements basic KMIP client
 //
@@ -25,15 +55,15 @@ type Client struct {
 
 	// KMIP version to use
 	//
-	// Defaults to DefaultSupportedVersions[0] if not set
-	Version ProtocolVersion
+	// Defaults to 1.4 if not set
+	Version proto.ProtocolVersion
 
 	// Network timeouts
 	ReadTimeout, WriteTimeout time.Duration
 
 	conn *tls.Conn
-	e    *Encoder
-	d    *Decoder
+	e    *ttlv.Encoder
+	d    *ttlv.Decoder
 }
 
 // Connect establishes connection with the server
@@ -56,13 +86,13 @@ func (c *Client) Connect() error {
 		return errors.Wrap(err, "error running tls handshake")
 	}
 
-	var zeroVersion ProtocolVersion
+	var zeroVersion proto.ProtocolVersion
 	if c.Version == zeroVersion {
-		c.Version = DefaultSupportedVersions[0]
+		c.Version = proto.ProtocolVersion{Major: 1, Minor: 4}
 	}
 
-	c.e = NewEncoder(c.conn)
-	c.d = NewDecoder(c.conn)
+	c.e = ttlv.NewEncoder(c.conn)
+	c.d = ttlv.NewDecoder(c.conn)
 
 	return nil
 }
@@ -80,91 +110,90 @@ func (c *Client) Close() error {
 }
 
 // DiscoverVersions with the server
-func (c *Client) DiscoverVersions(versions []ProtocolVersion) (serverVersions []ProtocolVersion, err error) {
-	var resp interface{}
-	resp, err = c.Send(OPERATION_DISCOVER_VERSIONS,
-		DiscoverVersionsRequest{
-			ProtocolVersions: versions,
-		})
-
+func (c *Client) DiscoverVersions(request proto.DiscoverVersionsRequest) (proto.DiscoverVersionsResponse, error) {
+	resp, err := c.Send(ttlv.OPERATION_DISCOVER_VERSIONS, request)
 	if err != nil {
-		return
+		return proto.DiscoverVersionsResponse{}, err
 	}
 
-	serverVersions = resp.(DiscoverVersionsResponse).ProtocolVersions
-	return
+	discoverResp, ok := resp.(proto.DiscoverVersionsResponse)
+	if !ok {
+		return proto.DiscoverVersionsResponse{}, ErrResponseType
+	}
+
+	return discoverResp, nil
 }
 
 // Create with the server
-func (c *Client) Create(request CreateRequest) (CreateResponse, error) {
-	resp, err := c.Send(OPERATION_CREATE, request)
+func (c *Client) Create(request proto.CreateRequest) (proto.CreateResponse, error) {
+	resp, err := c.Send(ttlv.OPERATION_CREATE, request)
 	if err != nil {
-		return CreateResponse{}, err
+		return proto.CreateResponse{}, err
 	}
 
-	createResp, ok := resp.(CreateResponse)
+	createResp, ok := resp.(proto.CreateResponse)
 	if !ok {
-		return CreateResponse{}, ErrResponseType
+		return proto.CreateResponse{}, ErrResponseType
 	}
 
 	return createResp, nil
 }
 
 // Activate with the server
-func (c *Client) Activate(request ActivateRequest) (ActivateResponse, error) {
-	resp, err := c.Send(OPERATION_ACTIVATE, request)
+func (c *Client) Activate(request proto.ActivateRequest) (proto.ActivateResponse, error) {
+	resp, err := c.Send(ttlv.OPERATION_ACTIVATE, request)
 	if err != nil {
-		return ActivateResponse{}, err
+		return proto.ActivateResponse{}, err
 	}
 
-	activateResp, ok := resp.(ActivateResponse)
+	activateResp, ok := resp.(proto.ActivateResponse)
 	if !ok {
-		return ActivateResponse{}, ErrResponseType
+		return proto.ActivateResponse{}, ErrResponseType
 	}
 
 	return activateResp, nil
 }
 
 // Encrypt with the server
-func (c *Client) Encrypt(request EncryptRequest) (EncryptResponse, error) {
-	resp, err := c.Send(OPERATION_ENCRYPT, request)
+func (c *Client) Encrypt(request proto.EncryptRequest) (proto.EncryptResponse, error) {
+	resp, err := c.Send(ttlv.OPERATION_ENCRYPT, request)
 	if err != nil {
-		return EncryptResponse{}, err
+		return proto.EncryptResponse{}, err
 	}
 
-	encryptResp, ok := resp.(EncryptResponse)
+	encryptResp, ok := resp.(proto.EncryptResponse)
 	if !ok {
-		return EncryptResponse{}, ErrResponseType
+		return proto.EncryptResponse{}, ErrResponseType
 	}
 
 	return encryptResp, nil
 }
 
 // Decrypt with the server
-func (c *Client) Decrypt(request DecryptRequest) (DecryptResponse, error) {
-	resp, err := c.Send(OPERATION_DECRYPT, request)
+func (c *Client) Decrypt(request proto.DecryptRequest) (proto.DecryptResponse, error) {
+	resp, err := c.Send(ttlv.OPERATION_DECRYPT, request)
 	if err != nil {
-		return DecryptResponse{}, err
+		return proto.DecryptResponse{}, err
 	}
 
-	decryptResp, ok := resp.(DecryptResponse)
+	decryptResp, ok := resp.(proto.DecryptResponse)
 	if !ok {
-		return DecryptResponse{}, ErrResponseType
+		return proto.DecryptResponse{}, ErrResponseType
 	}
 
 	return decryptResp, nil
 }
 
 // RNGRetrieve with the server
-func (c *Client) RNGRetrieve(request RNGRetrieveRequest) (RNGRetrieveResponse, error) {
-	resp, err := c.Send(OPERATION_RNG_RETRIEVE, request)
+func (c *Client) RNGRetrieve(request proto.RNGRetrieveRequest) (proto.RNGRetrieveResponse, error) {
+	resp, err := c.Send(ttlv.OPERATION_RNG_RETRIEVE, request)
 	if err != nil {
-		return RNGRetrieveResponse{}, err
+		return proto.RNGRetrieveResponse{}, err
 	}
 
-	rngRetrieveResp, ok := resp.(RNGRetrieveResponse)
+	rngRetrieveResp, ok := resp.(proto.RNGRetrieveResponse)
 	if !ok {
-		return RNGRetrieveResponse{}, ErrResponseType
+		return proto.RNGRetrieveResponse{}, ErrResponseType
 	}
 
 	return rngRetrieveResp, nil
@@ -178,18 +207,18 @@ func (c *Client) RNGRetrieve(request RNGRetrieveRequest) (RNGRetrieveResponse, e
 //
 // Send is a generic method, it's better to implement specific methods for
 // each operation (use DiscoverVersions as example).
-func (c *Client) Send(operation Enum, req interface{}) (resp interface{}, err error) {
+func (c *Client) Send(operation ttlv.Enum, req interface{}) (resp interface{}, err error) {
 	if c.conn == nil {
 		err = errors.New("not connected")
 		return
 	}
 
-	request := &Request{
-		Header: RequestHeader{
+	request := &proto.Request{
+		Header: proto.RequestHeader{
 			Version:    c.Version,
 			BatchCount: 1,
 		},
-		BatchItems: []RequestBatchItem{
+		BatchItems: []proto.RequestBatchItem{
 			{
 				Operation:      operation,
 				RequestPayload: req,
@@ -211,7 +240,7 @@ func (c *Client) Send(operation Enum, req interface{}) (resp interface{}, err er
 		_ = c.conn.SetReadDeadline(time.Now().Add(c.ReadTimeout))
 	}
 
-	var response Response
+	var response proto.Response
 
 	err = c.d.Decode(&response)
 	if err != nil {
@@ -234,11 +263,11 @@ func (c *Client) Send(operation Enum, req interface{}) (resp interface{}, err er
 		return
 	}
 
-	if response.BatchItems[0].ResultStatus == RESULT_STATUS_SUCCESS {
+	if response.BatchItems[0].ResultStatus == ttlv.RESULT_STATUS_SUCCESS {
 		resp = response.BatchItems[0].ResponsePayload
 		return
 	}
 
-	err = wrapError(errors.New(response.BatchItems[0].ResultMessage), response.BatchItems[0].ResultReason)
+	err = WrapError(errors.New(response.BatchItems[0].ResultMessage), response.BatchItems[0].ResultReason)
 	return
 }

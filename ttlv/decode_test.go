@@ -1,4 +1,4 @@
-package kmip
+package ttlv
 
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -169,69 +169,6 @@ func (s *DecoderSuite) TestDecodeStructSkipAny() {
 
 	s.Assert().EqualValues(254, v.A)
 	s.Assert().EqualValues(nil, v.B)
-}
-
-func (s *DecoderSuite) TestDecodeMessageCreate() {
-	var m Request
-
-	err := NewDecoder(bytes.NewReader(messageCreate)).Decode(&m)
-	s.Assert().NoError(err)
-	s.Assert().Equal(
-		Request{
-			Header: RequestHeader{
-				Version:    ProtocolVersion{Major: 1, Minor: 1},
-				BatchCount: 1,
-			},
-			BatchItems: []RequestBatchItem{
-				{
-					Operation: OPERATION_CREATE,
-					RequestPayload: CreateRequest{
-						ObjectType: OBJECT_TYPE_SYMMETRIC_KEY,
-						TemplateAttribute: TemplateAttribute{
-							Attributes: []Attribute{
-								{
-									Name:  ATTRIBUTE_NAME_CRYPTOGRAPHIC_ALGORITHM,
-									Value: CRYPTO_AES,
-								},
-								{
-									Name:  ATTRIBUTE_NAME_CRYPTOGRAPHIC_LENGTH,
-									Value: int32(128),
-								},
-								{
-									Name:  ATTRIBUTE_NAME_CRYPTOGRAPHIC_USAGE_MASK,
-									Value: int32(12),
-								},
-								{
-									Name:  ATTRIBUTE_NAME_INITIAL_DATE,
-									Value: time.Unix(12345, 0),
-								},
-							},
-						},
-					},
-				},
-			},
-		}, m)
-}
-
-func (s *DecoderSuite) TestDecodeMessageGet() {
-	var m Request
-
-	err := NewDecoder(bytes.NewReader(messageGet)).Decode(&m)
-	s.Assert().NoError(err)
-	s.Assert().Equal(Request{
-		Header: RequestHeader{
-			Version:    ProtocolVersion{Major: 1, Minor: 1},
-			BatchCount: 1,
-		},
-		BatchItems: []RequestBatchItem{
-			{
-				Operation: OPERATION_GET,
-				RequestPayload: GetRequest{
-					UniqueIdentifier: "49a1ca88-6bea-4fb2-b450-7e58802c3038",
-				},
-			},
-		},
-	}, m)
 }
 
 func TestDecoderSuite(t *testing.T) {

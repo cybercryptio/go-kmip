@@ -1,4 +1,4 @@
-package kmip
+package server
 
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -16,7 +16,39 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
+	"github.com/cybercryptio/go-kmip/proto"
+	"github.com/cybercryptio/go-kmip/ttlv"
 )
+
+// Error enhances error with "Result Reason" field
+//
+// Any Error instance is returned back to the caller with message and
+// result reason set, any other Go error is returned as "General Failure"
+type Error interface {
+	error
+	ResultReason() ttlv.Enum
+}
+
+type protocolError struct {
+	error
+	reason ttlv.Enum
+}
+
+func (e protocolError) ResultReason() ttlv.Enum {
+	return e.reason
+}
+
+func WrapError(err error, reason ttlv.Enum) protocolError {
+	return protocolError{err, reason}
+}
+
+// DefaultServerTLSConfig fills in good defaults for server TLS configuration
+func DefaultServerTLSConfig(config *tls.Config) {
+	config.MinVersion = tls.VersionTLS12
+	config.PreferServerCipherSuites = true
+	config.ClientAuth = tls.RequireAndVerifyClientCert
+}
 
 // Server implements core KMIP server
 type Server struct {
@@ -32,7 +64,7 @@ type Server struct {
 	// Supported version of KMIP, in the order of the preference
 	//
 	// If not set, defaults to DefaultSupportedVersions
-	SupportedVersions []ProtocolVersion
+	SupportedVersions []proto.ProtocolVersion
 
 	// Network read & write timeouts
 	//
@@ -50,17 +82,17 @@ type Server struct {
 	//
 	// Value returned from RequestAuthHandler is stored as RequestContext.RequestAuth, which
 	// can be used to authorize each batch item in the request
-	RequestAuthHandler func(sesssion *SessionContext, auth *Authentication) (requestAuth interface{}, err error)
+	RequestAuthHandler func(sesssion *SessionContext, auth *proto.Authentication) (requestAuth interface{}, err error)
 
 	l        net.Listener
 	mu       sync.Mutex
 	wg       sync.WaitGroup
 	doneChan chan struct{}
-	handlers map[Enum]Handler
+	handlers map[ttlv.Enum]Handler
 }
 
 // Handler processes specific KMIP operation
-type Handler func(req *RequestContext, item *RequestBatchItem) (resp interface{}, err error)
+type Handler func(req *RequestContext, item *proto.RequestBatchItem) (resp interface{}, err error)
 
 // SessionContext is initialized for each connection
 type SessionContext struct {
@@ -111,7 +143,7 @@ func (s *Server) Serve(l net.Listener, initializedCh chan struct{}) error {
 	}
 
 	if len(s.SupportedVersions) == 0 {
-		s.SupportedVersions = append([]ProtocolVersion(nil), DefaultSupportedVersions...)
+		s.SupportedVersions = append([]proto.ProtocolVersion(nil), DefaultSupportedVersions...)
 	}
 
 	if s.handlers == nil {
@@ -193,7 +225,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 //
 // Server provides default handler for DISCOVER_VERSIONS operation, any other
 // operation should be specifically enabled via Handle
-func (s *Server) Handle(operation Enum, handler Handler) {
+func (s *Server) Handle(operation ttlv.Enum, handler Handler) {
 	if s.handlers == nil {
 		s.initHandlers()
 	}
@@ -202,8 +234,8 @@ func (s *Server) Handle(operation Enum, handler Handler) {
 }
 
 func (s *Server) initHandlers() {
-	s.handlers = make(map[Enum]Handler)
-	s.handlers[OPERATION_DISCOVER_VERSIONS] = s.handleDiscoverVersions
+	s.handlers = make(map[ttlv.Enum]Handler)
+	s.handlers[ttlv.OPERATION_DISCOVER_VERSIONS] = s.handleDiscoverVersions
 }
 
 func (s *Server) getDoneChan() chan struct{} {
@@ -258,11 +290,11 @@ func (s *Server) serve(conn net.Conn, session string) {
 		}
 	}
 
-	d := NewDecoder(conn)
-	e := NewEncoder(conn)
+	d := ttlv.NewDecoder(conn)
+	e := ttlv.NewEncoder(conn)
 
 	for {
-		var req = &Request{}
+		var req = &proto.Request{}
 
 		if s.ReadTimeout != 0 {
 			_ = conn.SetReadDeadline(time.Now().Add(s.ReadTimeout))
@@ -278,7 +310,7 @@ func (s *Server) serve(conn net.Conn, session string) {
 			break
 		}
 
-		var resp *Response
+		var resp *proto.Response
 		resp, err = s.handleBatch(sessionCtx, req)
 		if err != nil {
 			s.Log.Printf("[ERROR] [%s] Fatal error handling batch: %s", session, err)
@@ -296,7 +328,7 @@ func (s *Server) serve(conn net.Conn, session string) {
 	}
 }
 
-func (s *Server) handleBatch(session *SessionContext, req *Request) (resp *Response, err error) {
+func (s *Server) handleBatch(session *SessionContext, req *proto.Request) (resp *proto.Response, err error) {
 	if int(req.Header.BatchCount) != len(req.BatchItems) {
 		err = errors.Errorf("request batch count doesn't match number of batch items: %d != %d", req.Header.BatchCount, len(req.BatchItems))
 		return
@@ -307,14 +339,14 @@ func (s *Server) handleBatch(session *SessionContext, req *Request) (resp *Respo
 		return
 	}
 
-	resp = &Response{
-		Header: ResponseHeader{
+	resp = &proto.Response{
+		Header: proto.ResponseHeader{
 			Version:                req.Header.Version,
 			TimeStamp:              time.Now(),
 			ClientCorrelationValue: req.Header.ClientCorrelationValue,
 			BatchCount:             req.Header.BatchCount,
 		},
-		BatchItems: make([]ResponseBatchItem, req.Header.BatchCount),
+		BatchItems: make([]proto.ResponseBatchItem, req.Header.BatchCount),
 	}
 
 	requestCtx := &RequestContext{
@@ -344,19 +376,19 @@ func (s *Server) handleBatch(session *SessionContext, req *Request) (resp *Respo
 
 		batchResp, batchErr = s.handleWrapped(requestCtx, &req.BatchItems[i])
 		if batchErr != nil {
-			s.Log.Printf("[WARN] [%s] Request failed, operation %v: %s", requestCtx.SessionID, operationMap[req.BatchItems[i].Operation], batchErr)
+			s.Log.Printf("[WARN] [%s] Request failed, operation %v: %s", requestCtx.SessionID, ttlv.OperationMap[req.BatchItems[i].Operation], batchErr)
 
-			resp.BatchItems[i].ResultStatus = RESULT_STATUS_OPERATION_FAILED
+			resp.BatchItems[i].ResultStatus = ttlv.RESULT_STATUS_OPERATION_FAILED
 			// TODO: should we skip returning error message? or return it only for specific errors?
 			resp.BatchItems[i].ResultMessage = batchErr.Error()
 			if protoErr, ok := batchErr.(Error); ok {
 				resp.BatchItems[i].ResultReason = protoErr.ResultReason()
 			} else {
-				resp.BatchItems[i].ResultReason = RESULT_REASON_GENERAL_FAILURE
+				resp.BatchItems[i].ResultReason = ttlv.RESULT_REASON_GENERAL_FAILURE
 			}
 		} else {
-			s.Log.Printf("[INFO] [%s] Request processed, operation %v", requestCtx.SessionID, operationMap[req.BatchItems[i].Operation])
-			resp.BatchItems[i].ResultStatus = RESULT_STATUS_SUCCESS
+			s.Log.Printf("[INFO] [%s] Request processed, operation %v", requestCtx.SessionID, ttlv.OperationMap[req.BatchItems[i].Operation])
+			resp.BatchItems[i].ResultStatus = ttlv.RESULT_STATUS_SUCCESS
 			resp.BatchItems[i].ResponsePayload = batchResp
 		}
 	}
@@ -364,7 +396,7 @@ func (s *Server) handleBatch(session *SessionContext, req *Request) (resp *Respo
 	return
 }
 
-func (s *Server) handleWrapped(request *RequestContext, item *RequestBatchItem) (resp interface{}, err error) {
+func (s *Server) handleWrapped(request *RequestContext, item *proto.RequestBatchItem) (resp interface{}, err error) {
 	defer func() {
 		if p := recover(); p != nil {
 			err = errors.Errorf("panic: %s", p)
@@ -372,14 +404,14 @@ func (s *Server) handleWrapped(request *RequestContext, item *RequestBatchItem) 
 			buf := make([]byte, 8192)
 
 			n := runtime.Stack(buf, false)
-			s.Log.Printf("[ERROR] [%s] Panic in request handler, operation %s: %s", request.SessionID, operationMap[item.Operation], string(buf[:n]))
+			s.Log.Printf("[ERROR] [%s] Panic in request handler, operation %s: %s", request.SessionID, ttlv.OperationMap[item.Operation], string(buf[:n]))
 		}
 	}()
 
 	handler := s.handlers[item.Operation]
 
 	if handler == nil {
-		err = wrapError(errors.New("operation not supported"), RESULT_REASON_OPERATION_NOT_SUPPORTED)
+		err = WrapError(errors.New("operation not supported"), ttlv.RESULT_REASON_OPERATION_NOT_SUPPORTED)
 		return
 	}
 
@@ -387,18 +419,18 @@ func (s *Server) handleWrapped(request *RequestContext, item *RequestBatchItem) 
 	return
 }
 
-func (s *Server) handleDiscoverVersions(req *RequestContext, item *RequestBatchItem) (resp interface{}, err error) {
-	response := DiscoverVersionsResponse{}
+func (s *Server) handleDiscoverVersions(req *RequestContext, item *proto.RequestBatchItem) (resp interface{}, err error) {
+	response := proto.DiscoverVersionsResponse{}
 
-	request, ok := item.RequestPayload.(DiscoverVersionsRequest)
+	request, ok := item.RequestPayload.(proto.DiscoverVersionsRequest)
 	if !ok {
-		err = wrapError(errors.New("wrong request body"), RESULT_REASON_INVALID_MESSAGE)
+		err = WrapError(errors.New("wrong request body"), ttlv.RESULT_REASON_INVALID_MESSAGE)
 		return
 	}
 
 	if len(request.ProtocolVersions) == 0 {
 		// return all the versions
-		response.ProtocolVersions = append([]ProtocolVersion(nil), s.SupportedVersions...)
+		response.ProtocolVersions = append([]proto.ProtocolVersion(nil), s.SupportedVersions...)
 	} else {
 		// find matching versions
 		for _, version := range request.ProtocolVersions {
@@ -416,7 +448,7 @@ func (s *Server) handleDiscoverVersions(req *RequestContext, item *RequestBatchI
 }
 
 // DefaultSupportedVersions is a default list of supported KMIP versions
-var DefaultSupportedVersions = []ProtocolVersion{
+var DefaultSupportedVersions = []proto.ProtocolVersion{
 	{Major: 1, Minor: 4},
 	{Major: 1, Minor: 3},
 	{Major: 1, Minor: 2},

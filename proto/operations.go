@@ -1,7 +1,9 @@
-package kmip
+package proto
 
 import (
 	"time"
+
+	"github.com/cybercryptio/go-kmip/ttlv"
 )
 
 /* This Source Code Form is subject to the terms of the Mozilla Public
@@ -10,13 +12,13 @@ import (
 
 // CreateRequest is a Create Request Payload
 type CreateRequest struct {
-	ObjectType        Enum              `kmip:"OBJECT_TYPE,required"`
+	ObjectType        ttlv.Enum         `kmip:"OBJECT_TYPE,required"`
 	TemplateAttribute TemplateAttribute `kmip:"TEMPLATE_ATTRIBUTE,required"`
 }
 
 // CreateResponse is a Create Response Payload
 type CreateResponse struct {
-	ObjectType        Enum              `kmip:"OBJECT_TYPE,required"`
+	ObjectType        ttlv.Enum         `kmip:"OBJECT_TYPE,required"`
 	UniqueIdentifier  string            `kmip:"UNIQUE_IDENTIFIER,required"`
 	TemplateAttribute TemplateAttribute `kmip:"TEMPLATE_ATTRIBUTE"`
 }
@@ -39,16 +41,16 @@ type CreateKeyPairResponse struct {
 // GetRequest is a Get Request Payload
 type GetRequest struct {
 	UniqueIdentifier   string                   `kmip:"UNIQUE_IDENTIFIER"`
-	KeyFormatType      Enum                     `kmip:"KEY_FORMAT_TYPE"`
-	KeyWrapType        Enum                     `kmip:"KEY_WRAP_TYPE"`
-	KeyCompressionType Enum                     `kmip:"KEY_COMPRESSION_TYPE"`
+	KeyFormatType      ttlv.Enum                `kmip:"KEY_FORMAT_TYPE"`
+	KeyWrapType        ttlv.Enum                `kmip:"KEY_WRAP_TYPE"`
+	KeyCompressionType ttlv.Enum                `kmip:"KEY_COMPRESSION_TYPE"`
 	KeyWrappingSpec    KeyWrappingSpecification `kmip:"KEY_WRAPPING_SPECIFICATION"`
 }
 
 // GetResponse is a Get Response Payload
 type GetResponse struct {
-	ObjectType       Enum   `kmip:"OBJECT_TYPE,required"`
-	UniqueIdentifier string `kmip:"UNIQUE_IDENTIFIER,required"`
+	ObjectType       ttlv.Enum `kmip:"OBJECT_TYPE,required"`
+	UniqueIdentifier string    `kmip:"UNIQUE_IDENTIFIER,required"`
 	// Response might contain one of SymmetricKey, Certificate, ...
 	SymmetricKey SymmetricKey `kmip:"SYMMETRIC_KEY"`
 	PrivateKey   PrivateKey   `kmip:"PRIVATE_KEY"`
@@ -122,14 +124,14 @@ type DiscoverVersionsResponse struct {
 
 // QueryRequest is a Query Request Payload
 type QueryRequest struct {
-	QueryFunctions []Enum `kmip:"QUERY_FUNCTION,required"`
+	QueryFunctions []ttlv.Enum `kmip:"QUERY_FUNCTION,required"`
 }
 
 // QueryResponse is a Query Response Payload
 type QueryResponse struct {
-	Operations           []Enum `kmip:"OPERATION"`
-	ObjectTypes          []Enum `kmip:"OBJECT_TYPE"`
-	VendorIdentification string `kmip:"VENDOR_IDENTIFICATION"`
+	Operations           []ttlv.Enum `kmip:"OPERATION"`
+	ObjectTypes          []ttlv.Enum `kmip:"OBJECT_TYPE"`
+	VendorIdentification string      `kmip:"VENDOR_IDENTIFICATION"`
 }
 
 // EncryptRequest is an Encrypt Request Payload
@@ -192,7 +194,7 @@ type SignResponse struct {
 
 // RegisterRequest is a Register Request Payload
 type RegisterRequest struct {
-	ObjectType        Enum              `kmip:"OBJECT_TYPE,required"`
+	ObjectType        ttlv.Enum         `kmip:"OBJECT_TYPE,required"`
 	TemplateAttribute TemplateAttribute `kmip:"TEMPLATE_ATTRIBUTE,required"`
 	// Request might contain one of SymmetricKey, Certificate, ...
 	SymmetricKey SymmetricKey `kmip:"SYMMETRIC_KEY"`
@@ -211,7 +213,7 @@ type LocateRequest struct {
 	MaximumItems      int32      `kmip:"MAXIMUM_ITEMS"`
 	OffsetItems       int32      `kmip:"OFFSET_ITEMS"`
 	StorageStatusMask int32      `kmip:"STORAGE_STATUS_MASK"`
-	ObjectGroupMember Enum       `kmip:"OBJECT_GROUP_MEMBER"`
+	ObjectGroupMember ttlv.Enum  `kmip:"OBJECT_GROUP_MEMBER"`
 	Attributes        Attributes `kmip:"ATTRIBUTE"`
 }
 
