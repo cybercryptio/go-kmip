@@ -8,6 +8,9 @@ package integration
 
 import (
 	"crypto/tls"
+	"crypto/x509"
+	"errors"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -17,23 +20,58 @@ import (
 	"github.com/cybercryptio/go-kmip/ttlv"
 )
 
+// GetTLSConfig creates a TLS configuration for use with a `http.Transport`.
+// If caCertPath is set the specified CA certificate is appended to the system certificate pool.
+// If certPath and keyPath are set the client certificate/key will be added to the configuration.
+func GetTLSConfig(caCertPath, certPath, keyPath string) (*tls.Config, error) {
+	certPool, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, err
+	}
+
+	if caCertPath != "" {
+		ca, err := os.ReadFile(caCertPath)
+		if err != nil {
+			return nil, err
+		}
+		if !certPool.AppendCertsFromPEM(ca) {
+			return nil, errors.New("failed to parse CA certs")
+		}
+	}
+
+	certs := []tls.Certificate{}
+	if certPath != "" && keyPath != "" {
+		cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+		if err != nil {
+			return nil, err
+		}
+		certs = append(certs, cert)
+	}
+
+	return &tls.Config{
+		RootCAs:      certPool,
+		ClientCAs:    certPool,
+		Certificates: certs,
+		// The Python KMIP test server does not support TLS 1.3, so we sadly can't enforce that here.
+		MinVersion: tls.VersionTLS12,
+		CipherSuites: []uint16{
+			tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+		},
+	}, nil
+}
+
 func MakeTestClient() (kc.Client, error) {
-	cert, err := tls.LoadX509KeyPair("./server.cert", "./server.key")
+	tlsConf, err := GetTLSConfig(
+		"./certs/root_certificate.pem",
+		"./certs/client_certificate.pem",
+		"./certs/client_key.pem")
 	if err != nil {
 		return kc.Client{}, err
 	}
 
 	client := kc.Client{
-		Endpoint: "127.0.0.1:5696",
-		TLSConfig: &tls.Config{
-			MinVersion:   tls.VersionTLS12,
-			Certificates: []tls.Certificate{cert},
-		},
-	}
-
-	client.TLSConfig.InsecureSkipVerify = true
-	client.TLSConfig.CipherSuites = []uint16{
-		tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256,
+		Endpoint:  "127.0.0.1:5696",
+		TLSConfig: tlsConf,
 	}
 
 	if err = client.Connect(); err != nil {
