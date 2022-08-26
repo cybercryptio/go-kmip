@@ -1,7 +1,7 @@
 go-kmip
 =======
 
-[![Documentation](https://pkg.go.dev/github.com/cybercryptio/go-kmip?status.svg)](https://pkg.go.dev/github.com/cybercryptio/go-kmip)
+[![Documentation](https://pkg.go.dev/badge/github.com/cybercryptio/go-kmip)](https://pkg.go.dev/github.com/cybercryptio/go-kmip)
 
 This is a fork of [smira/go-kmip](https://github.com/smira/go-kmip).
 
